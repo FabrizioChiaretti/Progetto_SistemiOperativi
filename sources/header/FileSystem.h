@@ -40,17 +40,16 @@ typedef struct {
 
 typedef struct {
 	int flag; // 1 for file, 0 for dir
-	char name[11]; // max_lenght_name = 10
+	char name[41]; // max_lenght_name = 54
 	FileControlBlock fcb;
 } DirectoryEntry;
 
 
 
 typedef struct {
-	int dim;
-	int free_num; // free blocks number
-	int first_free; // first free block idx
-	int* fat;
+	int dim; // number of the Fat elements
+	int first_idx;
+	int* fat; // pointer to the first Fat block
 } Fat;
 
 
@@ -61,32 +60,34 @@ typedef struct {
 	int num_blocks;
 	int block_dim;
 	BlockHeader* root_dir;
-	Fat* fat;
+	Fat fat;
 } DiskHeader;
 
 
 
 typedef struct {
 	BlockHeader header;
-	char name[1];
-	FileControlBlock fcb; 
+	FileControlBlock fcb;
+	int num_entry; 
+	DirectoryEntry block[7]; // for memory alignment
 } RootDir;
 
 
 
 typedef struct {
 	BlockHeader header;
-	int used;
-	char block[BLOCK_DIM-sizeof(BlockHeader)-sizeof(used)]; 
+	char block[DIM_BLOCK - sizeof(header)];
 } FileBlock;
 
 
 
 typedef struct {
 	BlockHeader header;
-	int num_entries;
-	DirectoryEntry block[BLOCK_DIM-sizeof(BlockHeader)-sizeof(num_entries)]; 
-} DirectoryBlock;
+	DirectoryEntry block[(DIM_BLOCK - sizeof(header)) / sizeof(DirectoryEntry)];
+} DirBlock;
+
+
+
 
 
 
@@ -105,11 +106,11 @@ typedef struct {
 
 typedef struct {
 	char* path;
-	BlockHeader* directory; // parent directory
+	BlockHeader* parent_directory; 
 	BlockHeader* current_block;
 	int pos; // current entry number
 	FileControlBlock fcb;
-} DirectoryHandle;
+} DirHandle;
 
 
 

@@ -1,14 +1,14 @@
-#pragma once
-
 
 #pragma once
 
-typedef struct ListItem {
+#include <FileSystem.h>
+
+typedef struct {
   struct ListItem* prev;
   struct ListItem* next;
 } ListItem;
 
-typedef struct ListHead {
+typedef struct {
   ListItem* first;
   ListItem* last;
   int size;
@@ -31,12 +31,12 @@ typedef struct {
 } FileHandleItem;
 
 
-typedef struct ListHead {
+typedef struct {
   ListHead head;
 } DirListHead;
 
 
-typedef struct ListHead {
+typedef struct {
   ListHead head;
 } FileListHead;
 
