@@ -40,7 +40,7 @@ typedef struct {
 
 typedef struct {
 	int flag; // 1 for file, 0 for dir
-	char name[31]; // max_lenght_name = 30
+	char name[11]; // max_lenght_name = 10
 	FileControlBlock fcb;
 } DirectoryEntry;
 
@@ -94,17 +94,17 @@ typedef struct {
 
 
 typedef struct {
-	char name[31];
+	char* path;
 	BlockHeader* directory; // directory where the file is stored
 	BlockHeader* current_block;
-	int file_pos;
+	int pos;
 	FileControlBlock fcb;
 } FileHandle; 
 
 
 
 typedef struct {
-	char name[31];
+	char* path;
 	BlockHeader* directory; // parent directory
 	BlockHeader* current_block;
 	int pos; // current entry number
@@ -112,18 +112,6 @@ typedef struct {
 } DirectoryHandle;
 
 
-
-typedef struct {
-	
-	int size;
-} FileHandlerList;
-
-
-
-typedef struct {
-	
-	int size;
-} DirHandlerList;
 
 
 
