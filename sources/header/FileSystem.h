@@ -1,12 +1,9 @@
 #pragma once
  
 
-// integers used to indicate block type
+// integers used to indicate entry type in the directory structure
 #define DIR 0
 #define FILE 1
-#define ROOT_DIR 2
-#define DISK_HEADER 3
-#define FAT 4
 
 
 // integers used to indicate dimensions
@@ -24,15 +21,8 @@
 /////////////////////////////////// DISK STRUCTURES ///////////////////////////////
 
 
-// first field of all disk blocks
 typedef struct {
-	int type_block;
-} BlockHeader;
-
-
-
-typedef struct {
-	int dim; // blocks number for file, num_emtries for directory
+	int dim; // in bytes for file, num_emtries for directory
 	int first_idx;
 } FileControlBlock;
 
@@ -40,7 +30,7 @@ typedef struct {
 
 typedef struct {
 	int flag; // 1 for file, 0 for dir
-	char name[41]; // max_lenght_name = 54
+	char name[41]; // max_lenght_name = 40
 	FileControlBlock fcb;
 } DirectoryEntry;
 
@@ -48,42 +38,39 @@ typedef struct {
 
 typedef struct {
 	int dim; // number of the Fat elements
-	int first_idx;
+	int first_idx; // idx of the first available block
 	int* fat; // pointer to the first Fat block
 } Fat;
 
 
 
 typedef struct {
-	BlockHeader header;
 	int disk_dim;
-	int num_blocks;
 	int block_dim;
-	BlockHeader* root_dir;
+	int total_blocks;
+	int num_blocks; // number of the 'user' blocks 
+	RootDir* root_dir;
 	Fat fat;
 } DiskHeader;
 
 
 
 typedef struct {
-	BlockHeader header;
-	FileControlBlock fcb;
-	int num_entry; 
+	int num_entry;
+	FileControlBlock fcb; 
 	DirectoryEntry block[7]; // for memory alignment
 } RootDir;
 
 
 
 typedef struct {
-	BlockHeader header;
-	char block[DIM_BLOCK - sizeof(header)];
+	char block[DIM_BLOCK];
 } FileBlock;
 
 
 
 typedef struct {
-	BlockHeader header;
-	DirectoryEntry block[(DIM_BLOCK - sizeof(header)) / sizeof(DirectoryEntry)];
+	DirectoryEntry block[DIM_BLOCK / sizeof(DirectoryEntry)];
 } DirBlock;
 
 
@@ -96,9 +83,9 @@ typedef struct {
 
 typedef struct {
 	char* path;
-	BlockHeader* directory; // directory where the file is stored
-	BlockHeader* current_block;
-	int pos;
+	DirBlock* parent_directory;
+	FileBlock* current_block;
+	int pos; // in bytes, from SEEK_SET
 	FileControlBlock fcb;
 } FileHandle; 
 
@@ -106,8 +93,8 @@ typedef struct {
 
 typedef struct {
 	char* path;
-	BlockHeader* parent_directory; 
-	BlockHeader* current_block;
+	DirBlock* parent_directory; 
+	DirBlock* current_block;
 	int pos; // current entry number
 	FileControlBlock fcb;
 } DirHandle;
