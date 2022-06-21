@@ -30,7 +30,7 @@ typedef struct {
 
 typedef struct {
 	int flag; // 1 for file, 0 for dir
-	char name[41]; // max_lenght_name = 40
+	char name[52]; // max_lenght_name = 51
 	FileControlBlock fcb;
 } DirectoryEntry;
 
@@ -39,6 +39,7 @@ typedef struct {
 typedef struct {
 	int dim; // number of the Fat elements
 	int first_idx; // idx of the first available block
+	int free_blocks;
 	int* fat; // pointer to the first Fat block
 } Fat;
 
@@ -56,9 +57,9 @@ typedef struct {
 
 
 typedef struct {
-	int num_entry;
+	char name[56]; // name = 'root', dim = 56 for memory alignment
 	FileControlBlock fcb; 
-	DirectoryEntry block[7]; // for memory alignment
+	DirectoryEntry block[7];
 } RootDir;
 
 
@@ -83,9 +84,10 @@ typedef struct {
 
 typedef struct {
 	char* path;
-	DirBlock* parent_directory;
+	DirBlock* parent_directory; 
 	FileBlock* current_block;
 	int pos; // in bytes, from SEEK_SET
+	int modified; // 0 if the file is not modified, else 1
 	FileControlBlock fcb;
 } FileHandle; 
 
