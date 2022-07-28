@@ -1,10 +1,6 @@
 #pragma once
- 
 
-// integers used to indicate entry type in the directory structure
-#define DIR 0
-#define FILE 1
-
+#include <stdint.h>
 
 // integers used to indicate dimensions
 #define DISK_DIM 8388608 // 8 MB
@@ -17,61 +13,59 @@
 #define FREE_BLOCK -2
 
 
+// flags for header
+#define ROOT 2
+#define DIR 1
+#define FL 0
+
+
+#define MAX_LENGHT_NAME 50
+
 
 /////////////////////////////////// DISK STRUCTURES ///////////////////////////////
 
 
 typedef struct {
-	int dim; // in bytes for file, num_emtries for directory
-	int first_idx;
+	uint8_t flag; // 1 for direrctory, 0 for file
+	char name[MAX_LENGHT_NAME+1];
+} FileBlockHeader; // header of the first file/directory block
+
+
+typedef struct {
+	int32_t dim; // in bytes for file, num_emtries for directory
+	int32_t first_idx;
+	int32_t parent_block; // idx of the first parent directory block
 } FileControlBlock;
 
 
-
 typedef struct {
-	int flag; // 1 for file, 0 for dir
-	char name[52]; // max_lenght_name = 51
+	FileBlockHeader header;
 	FileControlBlock fcb;
-} DirectoryEntry;
-
-
-
-typedef struct {
-	int dim; // number of the Fat elements
-	int first_idx; // idx of the first available block
-	int free_blocks;
-	int* fat; // pointer to the first Fat block
-} Fat;
-
+	char block[BLOCK_DIM-sizeof(FileBlockHeader)-sizeof(FileControlBlock)];
+} FirstFileBlock;
 
 
 typedef struct {
-	int disk_dim;
-	int block_dim;
-	int total_blocks;
-	int num_blocks; // number of the 'user' blocks 
-	RootDir* root_dir;
-	Fat fat;
-} DiskHeader;
-
+	FileBlockHeader header;
+	FileControlBlock fcb;
+	int32_t first_blocks[(BLOCK_DIM - sizeof(FileBlockHeader) - sizeof(FileControlBlock))/sizeof(int32_t)];
+} FirstDirBlock;
 
 
 typedef struct {
-	char name[56]; // name = 'root', dim = 56 for memory alignment
-	FileControlBlock fcb; 
-	DirectoryEntry block[7];
+	FileBlockHeader header;
+	FileControlBlock fcb;
+	int32_t first_blocks[(BLOCK_DIM - sizeof(FileBlockHeader) - sizeof(FileControlBlock))/sizeof(int32_t)]; 
 } RootDir;
 
 
-
 typedef struct {
-	char block[DIM_BLOCK];
+	char block[BLOCK_DIM];
 } FileBlock;
 
 
-
 typedef struct {
-	DirectoryEntry block[DIM_BLOCK / sizeof(DirectoryEntry)];
+	int32_t first_blocks[BLOCK_DIM/sizeof(int32_t)];
 } DirBlock;
 
 
