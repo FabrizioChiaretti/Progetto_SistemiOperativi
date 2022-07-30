@@ -14,22 +14,28 @@
 
 DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 	
-	int fd = open(filename, O_CREAT | O_EXCL | O_RDWR, 0666);
+	int fd = open(filename, O_CREAT | O_EXCL | O_RDWR | O_SYNC, 0666);
 	
+	DirHandle* root_handle = (DirHandle*) malloc(sizeof(DirHandle));
+	int ret;
+
 	if (fd == -1) {
 		printf("DISKFILE ALREADY EXISTS\n");
-		fd = open(filename, O_RDWR, 0666);
+		fd = open(filename, O_RDWR | O_SYNC, 0666);
 		if (fd == -1) {
 			printf("open error\n");
 			exit(EXIT_FAILURE);
 		}
 		fs->fd_disk = fd;
 		fs->first_block = (FirstDiskBlock*) mmap(0, DISK_DIM, PROT_READ | PROT_WRITE, MAP_SHARED, fs->fd_disk, 0);
-		uint8_t* aux = (uint8_t*) fs->first_block;
-		int block_Dim = fs->first_block->header.block_dim;
-		int root_idx = fs->first_block->rootDir_idx;
-		aux += block_Dim*root_idx;
-		fs->root_dir = (RootDir*) aux;
+		fs->fat = (int32_t*) (fs->first_block + fs->first_block->fat.first_fatBlock);
+		FirstDirBlock* root_dir = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
+		ret = driver_readBlock(fs->first_block, 0, root_dir);
+		if (ret == -1) {
+			printf("init readrootblock\n");	
+			exit(EXIT_FAILURE);
+		}
+		// inizializza i campi di root_handle
 	}
 	
 	else {
@@ -42,17 +48,25 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		fs->fd_disk = fd;
 		fs->first_block = (FirstDiskBlock*) mmap(0, DISK_DIM, PROT_READ | PROT_WRITE, MAP_SHARED, fs->fd_disk, 0);
 		disk_init(fs->first_block, disk_dim, block_dim);
-		uint8_t* aux = (uint8_t*) fs->first_block;
-		int block_Dim = (fs->first_block->header).block_dim;
-		int root_idx = fs->first_block->rootDir_idx;
-		aux += block_Dim*root_idx;
-		fs->root_dir = (RootDir*) aux;
-		char *root_name = fs->root_dir->header.name;
+		fs->fat = (int32_t*) (fs->first_block + fs->first_block->fat.first_fatBlock);
+		FirstDirBlock* root_dir = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 		const char* name = "rootdir";
-		strcpy(fs->root_dir->header.name, name); 
+		strcpy(root_dir->header.name, name);
+		root_dir->header.flag = ROOTDIR;
+		root_dir->fcb.dim = 0;
+		root_dir->fcb.first_idx = 0;
+		root_dir->fcb.parent_block = -1;
+		for (int i = 0; i < BLOCK_DIM/sizeof(int32_t); i++) {
+			root_dir->first_blocks[i] = -1;
+		}
+		ret = driver_writeBlock(fs->first_block, 0, root_dir);
+		if (ret == -1) {
+			printf("init writerootblock\n");	
+			exit(EXIT_FAILURE);
+		}
+		// inizializza i campi di root_handle
 	}
 	
-	// create and return DirHandle
-	return NULL;
+	return root_handle;
 }
 

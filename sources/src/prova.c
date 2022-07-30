@@ -9,8 +9,15 @@
 #include <fcntl.h>
 #include <string.h>
 
+
+void prova(int num, int arr[num]) {
+	for (int i = 0; i < num; i++)
+		printf("%d ", arr[i]);
+	printf("\n");
+}
+
 int main () {
-	int ret;
+	/*int ret;
 	int fd = open("prova.txt", O_CREAT | O_EXCL | O_RDWR, 0666);
 	if (fd == -1) {
 		//printf("THE DISKFILE ALREADY EXISTS\n");
@@ -18,7 +25,7 @@ int main () {
 	}
 	fd = open("prova.txt", O_RDWR, 0666);
 	printf("%d\n", fd);
-	/*printf("%d\n", fd);
+	printf("%d\n", fd);
 	int size = 100;
 	ret = ftruncate(fd, size);
 	if (ret == -1) {
@@ -50,5 +57,14 @@ int main () {
 	}
 	printf("ok\n");
 	return EXIT_SUCCESS;*/
-	
+	int arr[5];
+	for (int i = 0; i < 5; i++)
+		arr[i] = i;
+	prova(5, arr);
+	printf("ok\n"); 
 }
+
+
+
+
+

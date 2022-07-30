@@ -30,7 +30,7 @@ typedef struct {
 	int32_t dim; // number of the Fat elements
 	int32_t first_free; // idx of the first available block
 	int32_t free_blocks;
-	int32_t* fat; // pointer to the first Fat block (next of the diskheader block)
+	int32_t first_fatBlock; // pointer to the first Fat block (next of the diskheader block)
 } Fat;
 
 
@@ -38,6 +38,7 @@ typedef struct {
 	DiskHeader header;
 	int32_t rootDir_idx;
 	Fat fat;
+	char padding[512-sizeof(DiskHeader)-sizeof(Fat)-sizeof(int32_t)];
 } FirstDiskBlock;
 
 
@@ -65,8 +66,8 @@ int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num);
 int driver_getfreeBlock(FirstDiskBlock* disk);
 
 
-// write the contents of blocks_num on the disk, blocks is the number of the block to write
-int driver_flush(FirstDiskBlock* disk, int32_t blocks, int32_t blocks_num[blocks]);
+// if flush_fat is 1 flushes the block in block_num position and the fat, otherwise only the block
+int driver_flush(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat);
 
 
 

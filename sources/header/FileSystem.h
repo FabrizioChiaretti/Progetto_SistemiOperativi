@@ -44,13 +44,6 @@ typedef struct {
 
 
 typedef struct {
-	FileBlockHeader header;
-	FileControlBlock fcb;
-	int32_t first_blocks[(BLOCK_DIM - sizeof(FileBlockHeader) - sizeof(FileControlBlock))/sizeof(int32_t)]; 
-} RootDir;
-
-
-typedef struct {
 	char block[BLOCK_DIM];
 } FileBlock;
 
@@ -89,8 +82,8 @@ typedef struct {
 
 typedef struct {
 	FirstDiskBlock* first_block;
-	RootDir* root_dir;
 	int fd_disk;
+	int32_t* fat;
 } fs;
 
 
