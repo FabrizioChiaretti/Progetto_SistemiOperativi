@@ -106,24 +106,9 @@ int driver_getfreeBlock(FirstDiskBlock* disk) {
 // non so se serve
 int driver_flush(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat) { 
 
-    int ret;
-    /*if (flush_fat) {
-        void* fat = (void*) (disk + disk->fat.first_fatBlock);
-        ret = msync(fat, (size_t) disk->fat.dim*sizeof(int32_t), MS_SYNC);
-        if (ret == -1) {
-            printf("msync fat error\n");
-            return ret;
-        }
-    }
-    //void* block = (void*) (disk + disk->rootDir_idx + block_num);
-    ret = msync(block, BLOCK_DIM, MS_SYNC);
-    if (ret == -1) {
-        printf("msync block error\n");
-        return ret;
-    }*/
-    ret = msync(disk, disk->header.disk_dim, MS_SYNC);
+    int ret = msync(disk, disk->header.disk_dim, MS_SYNC);
     if (ret == -1)
-        printf("ensomma\n");
+        printf("flush error\n");
     return ret;
 }
 

@@ -1,5 +1,6 @@
 #include "../header/FileSystem.h"
 #include "../header/driver.h"
+#include "../header/linked_list.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -9,12 +10,6 @@
 #include <fcntl.h>
 #include <string.h>
 
-
-void prova(int num, int arr[num]) {
-	for (int i = 0; i < num; i++)
-		printf("%d ", arr[i]);
-	printf("\n");
-}
 
 int main () {
 	/*int ret;
@@ -57,11 +52,50 @@ int main () {
 	}
 	printf("ok\n");
 	return EXIT_SUCCESS;*/
-	int arr[5];
-	for (int i = 0; i < 5; i++)
-		arr[i] = i;
-	prova(5, arr);
-	printf("ok\n"); 
+	ListHead* head = (ListHead*) malloc(sizeof(ListHead));
+	List_init(head);
+	char* arr;
+	for (int i = 0; i < 5; i++) {
+		FileHandle* file = (FileHandle*) malloc(sizeof(FileHandle));
+		file->first_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+		if (i == 0) 
+			arr = "mario";
+		if (i == 1)
+			arr = "pietro";
+		if (i == 2)
+			arr = "marco";
+		if (i == 3)
+			arr = "matteo";
+		if (i == 4)
+			arr = "paolo";
+		strcpy(file->first_block->header.name, arr);
+		List_insert(head, (ListItem*) file);
+	}
+	List_print(head);
+	ListItem* item;
+	for (int i = 0; i < 5; i++) {
+		if (i == 0) {
+			item = List_find(head, "matteo");
+			List_detach(head, item);
+		}
+		if (i == 1) {
+			item = List_find(head, "paolo");
+			List_detach(head, item);
+		}
+		if (i == 2) {
+			item = List_find(head, "mario");
+			List_detach(head, item);
+		}
+		if (i == 3) {
+			item = List_find(head, "pietro");
+			List_detach(head, item);
+		}
+		if (i == 4) {
+			item = List_find(head, "marco");
+			List_detach(head, item);
+		}
+		List_print(head);
+	}
 }
 
 
