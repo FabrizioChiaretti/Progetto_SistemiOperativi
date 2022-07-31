@@ -12,6 +12,13 @@
 #define MAX_LENGHT_NAME 50
 
 
+#define RD 0
+#define WR 1
+#define RDWR 2
+
+
+
+
 /////////////////////////////////// DISK STRUCTURES ///////////////////////////////
 
 
@@ -61,22 +68,19 @@ typedef struct {
 
 
 typedef struct {
-	char* path;
-	DirBlock* parent_directory; 
+	int mode; // mode open file
+	FirstFileBlock* first_block; 
 	FileBlock* current_block;
 	int pos; // in bytes, from SEEK_SET
-	int modified; // 0 if the file is not modified, else 1
-	FileControlBlock fcb;
 } FileHandle; 
 
 
 
 typedef struct {
-	char* path;
-	DirBlock* parent_directory; 
+	FirstDirBlock* parent_directory; 
+	FirstDirBlock* first_block;
 	DirBlock* current_block;
 	int pos; // current entry number
-	FileControlBlock fcb;
 } DirHandle;
 
 
@@ -85,6 +89,10 @@ typedef struct {
 	int fd_disk;
 	int32_t* fat;
 } fs;
+
+
+
+/////////// FILESYSTEM INTERFACE
 
 
 DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim);

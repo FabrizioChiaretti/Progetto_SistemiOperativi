@@ -64,6 +64,8 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 			printf("init writerootblock\n");	
 			exit(EXIT_FAILURE);
 		}
+		free(root_dir);
+		
 		// inizializza i campi di root_handle
 	}
 	

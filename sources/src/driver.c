@@ -3,6 +3,7 @@
 #include "../header/FileSystem.h"
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 
 void disk_init(FirstDiskBlock* disk, int disk_dim, int block_dim) {
 
@@ -62,7 +63,7 @@ int driver_writeBlock(FirstDiskBlock* disk, int32_t block_num, void* source) {
 int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num) {
     
     int32_t* fat = (int32_t*) (disk->fat.first_fatBlock + disk);
-    if (block_num < 0 || block_num >= disk->fat.dim || fat[block_num] >= -1) {
+    if (block_num >= disk->fat.dim || fat[block_num] == FREE_BLOCK) {
         printf("freeBlockerror, block_num not valid\n");
         return -1;
     }
@@ -90,23 +91,40 @@ int driver_getfreeBlock(FirstDiskBlock* disk) {
     fat[result] = LAST_BLOCK;
     int i;
     for (i = result+1; i < disk->fat.dim; i++) {
-        if (fat[i] == -2)
+        if (fat[i] == FREE_BLOCK) {
             disk->fat.first_free = i;
+            break;
+        }
     }
     if (disk->fat.free_blocks == 0) {
         disk->fat.first_free = -1;
-        printf("avaible blocks: 0\n");
     }
-
+    printf("avaible blocks: %d\n", disk->fat.free_blocks);
     return result;
 }
 
+// non so se serve
+int driver_flush(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat) { 
 
-int driver_flush_block(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat) { 
-
-    
-
-    return 0;
+    int ret;
+    /*if (flush_fat) {
+        void* fat = (void*) (disk + disk->fat.first_fatBlock);
+        ret = msync(fat, (size_t) disk->fat.dim*sizeof(int32_t), MS_SYNC);
+        if (ret == -1) {
+            printf("msync fat error\n");
+            return ret;
+        }
+    }
+    //void* block = (void*) (disk + disk->rootDir_idx + block_num);
+    ret = msync(block, BLOCK_DIM, MS_SYNC);
+    if (ret == -1) {
+        printf("msync block error\n");
+        return ret;
+    }*/
+    ret = msync(disk, disk->header.disk_dim, MS_SYNC);
+    if (ret == -1)
+        printf("ensomma\n");
+    return ret;
 }
 
 

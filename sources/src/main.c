@@ -19,12 +19,6 @@ int main (int argc, char** argv) {
 	int ret;
 	fs* fs_struct = (fs*) malloc(sizeof(fs));
 	DirHandle* root_dir_handle = FS_init(fs_struct, DISK_PATHNAME, DISK_DIM, BLOCK_DIM);
-	printf("fat dim %d\n", fs_struct->first_block->fat.dim);
-	printf("fat blocks %d\n", fs_struct->first_block->header.fat_blocks);
-	printf("fat[16253] %d\n", fs_struct->fat[16253]);
-	printf("fat first free %d\n", (fs_struct->first_block->fat).first_free);
-	printf("rootidx %d\n", fs_struct->first_block->rootDir_idx);
-	
 	ret = msync(fs_struct->first_block, DISK_DIM, MS_SYNC);
 	if(ret == -1) {
 		printf("msync error\n");
