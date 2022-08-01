@@ -7,21 +7,17 @@
 
 void disk_init(FirstDiskBlock* disk, int disk_dim, int block_dim) {
 
+    memset(disk, 0, disk_dim);
+
 	(disk->header).disk_dim = disk_dim;
     (disk->header).block_dim = block_dim;
     (disk->header).total_blocks = disk_dim / block_dim; // 16 384, 512/4 = 128, 16 384/128 = 128
-    //printf("total blocks %d\n", (disk->header).total_blocks);
     (disk->header).fat_blocks = ((disk->header).total_blocks / (block_dim / sizeof(int32_t))) -1; // 127, the last idx is invalid
-    //printf("fat blocks %d\n", (disk->header).fat_blocks);
     (disk->header).num_blocks = (disk->header).total_blocks - 2 - (disk->header).fat_blocks; //-2 because the last idx of the last fat block is invalid
-    //printf("user blocks %d\n", (disk->header).num_blocks);
     disk->rootDir_idx = (disk->header).fat_blocks +1;
-    //printf("root_idx %d\n", disk->rootDir_idx);
     disk->fat.dim = (disk->header).fat_blocks*((disk->header).block_dim/sizeof(int32_t)) -1;
-    //printf("fat dim %d\n", disk->fat.dim);
     disk->fat.first_free = 1; // 0 is used for the first block of the directory block
     disk->fat.free_blocks = disk->fat.dim -1;
-    //printf("fat free blocks %d\n", disk->fat.free_blocks);
     disk->fat.first_fatBlock = 1;
     int32_t* fat = (int32_t*) (disk+1);
     fat[0] = LAST_BLOCK;
@@ -81,10 +77,9 @@ int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num) {
 
 int driver_getfreeBlock(FirstDiskBlock* disk) {
     
-    if (disk->fat.free_blocks == 0) {
-        printf("there is not fat free blocks\n");
+    if (disk->fat.free_blocks == 0) 
         return -1;
-    }
+    
     disk->fat.free_blocks--;
     int32_t* fat = (int32_t*) (disk->fat.first_fatBlock + disk);
     int result = disk->fat.first_free;
@@ -99,7 +94,7 @@ int driver_getfreeBlock(FirstDiskBlock* disk) {
     if (disk->fat.free_blocks == 0) {
         disk->fat.first_free = -1;
     }
-    printf("avaible blocks: %d\n", disk->fat.free_blocks);
+
     return result;
 }
 

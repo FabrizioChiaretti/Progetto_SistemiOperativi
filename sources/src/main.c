@@ -19,6 +19,8 @@ int main (int argc, char** argv) {
 	int ret;
 	fs* fs_struct = (fs*) malloc(sizeof(fs));
 	DirHandle* root_dir_handle = FS_init(fs_struct, DISK_PATHNAME, DISK_DIM, BLOCK_DIM);
+	DirHandle* current_dir = root_dir_handle;
+	FS_createFile(current_dir, NULL);
 	ret = msync(fs_struct->first_block, DISK_DIM, MS_SYNC);
 	if(ret == -1) {
 		printf("msync error\n");
