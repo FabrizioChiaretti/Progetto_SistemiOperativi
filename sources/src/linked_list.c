@@ -6,7 +6,7 @@
 
 
 void List_init(ListHead* head) {
-    
+
     head->first = NULL;
   	head->last = NULL;
   	head->size = 0;
@@ -31,17 +31,15 @@ ListItem* List_insert(ListHead* head, ListItem* item) {
     if (head->first == NULL && head->last == NULL) {
         head->first = head->last = item;
         item->next = item->prev = NULL;
-    }
-    
+    }  
     else {
         head->last->next = item;
         item->prev = head->last;
         head->last = item;
         item->next = NULL;
-    }
+    }  
 
     head->size++;
-
     return item;
 }
 

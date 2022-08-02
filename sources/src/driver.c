@@ -98,14 +98,5 @@ int driver_getfreeBlock(FirstDiskBlock* disk) {
     return result;
 }
 
-// non so se serve
-int driver_flush(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat) { 
-
-    int ret = msync(disk, disk->header.disk_dim, MS_SYNC);
-    if (ret == -1)
-        printf("flush error\n");
-    return ret;
-}
-
 
 
