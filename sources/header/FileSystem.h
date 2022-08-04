@@ -13,6 +13,13 @@
 #define MAX_LENGHT_NAME 50
 
 
+// flags for header
+#define ROOTDIR 2
+#define DIR 1
+#define FL 0
+
+
+// integers for open file mode
 #define RD 0
 #define WR 1
 #define RDWR 2
@@ -33,6 +40,7 @@ typedef struct {
 typedef struct {
 	int32_t dim; // in bytes for file, num_emtries for directory
 	int32_t first_idx;
+	int32_t last_idx;
 	int32_t parent_block; // idx of the first parent directory block
 } FileControlBlock;
 
@@ -40,24 +48,30 @@ typedef struct {
 typedef struct {
 	FileBlockHeader header;
 	FileControlBlock fcb;
-	char block[BLOCK_DIM-sizeof(FileBlockHeader)-sizeof(FileControlBlock)];
+	char block[BLOCK_DIM-sizeof(FileBlockHeader)-sizeof(FileControlBlock)-sizeof(int16_t)];
+	int16_t occupied;
 } FirstFileBlock;
 
 
 typedef struct {
 	FileBlockHeader header;
 	FileControlBlock fcb;
-	int32_t first_blocks[(BLOCK_DIM - sizeof(FileBlockHeader) - sizeof(FileControlBlock))/sizeof(int32_t)];
+	int32_t first_blocks[(BLOCK_DIM - sizeof(FileBlockHeader) - sizeof(FileControlBlock) - sizeof(int32_t) -sizeof(int32_t))/sizeof(int32_t)];
+	int32_t first_free_entry;
+	int32_t occupied;
 } FirstDirBlock;
 
 
 typedef struct {
-	char block[BLOCK_DIM];
+	int16_t free;
+	char block[BLOCK_DIM - sizeof(int16_t)];
 } FileBlock;
 
 
 typedef struct {
-	int32_t first_blocks[BLOCK_DIM/sizeof(int32_t)];
+	int32_t first_free_entry;
+	int32_t occupied;
+	int32_t first_blocks[(BLOCK_DIM - sizeof(int32_t) - sizeof(int32_t))/sizeof(int32_t)];
 } DirBlock;
 
 
@@ -69,26 +83,28 @@ typedef struct {
 
 
 typedef struct {
-	ListItem item;
-	int mode; // mode open file
-	FirstFileBlock* first_block; 
-	FileBlock* current_block;
-	int pos; // in bytes, from SEEK_SET
-} FileHandle; 
-
-
-typedef struct {
-	FirstDirBlock* parent_directory; 
-	FirstDirBlock* first_block;
-	DirBlock* current_block;
-} DirHandle;
-
-
-typedef struct {
 	FirstDiskBlock* first_block;
 	int fd_disk;
 	int32_t* fat;
 } fs;
+
+
+typedef struct {
+	ListItem item;
+	int mode; // mode open file
+	FirstFileBlock* first_block; 
+	FileBlock* current_block;
+	int32_t pos; // in bytes, from SEEK_SET
+} FileHandle; 
+
+
+typedef struct {
+	FirstDirBlock* first_block;
+	fs* fs;
+	ListHead* open_files;
+} DirHandle;
+
+
 
 
 
@@ -102,22 +118,23 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim);
 // returns null if the file existing or there is not free blocks
 FileHandle* FS_createFile(DirHandle* dir, const char* filename);
 
-
 // removes the file in the current directory
-int FS_eraseFile(DirHandle* dir, char* filename);
+// returns -1 on failure 0 on success
+// if a directory, it removes recursively all contained files
+int FS_remove(DirHandle* dir, const char* filename);
 
 
 // reads the name of all files in a directory 
 // returns the number of the dir file
-int FS_listDir(char** file_names, DirHandle* dir);
+int FS_listing(DirHandle* dir,char** file_names);
 
 
 // opens a file in the directory dir, the file should be exisiting
-FileHandle* FS_openFile(DirHandle* dir, const char* filename);
+FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode);
 
 
 // closes a file handle
-int FS_close(FileHandle* f);
+int FS_close(DirHandle* dir, FileHandle* f);
 
 // writes in the file at current position for size bytes stored in data
 // returns the number of bytes written
@@ -138,12 +155,11 @@ int FS_seek(FileHandle* file, int pos);
 
 // creates a new directory in the current dir
 // 0 on success -1 on error
-int FS_mkDir(DirHandle* dir, char* dirname);
+int FS_mkdir(DirHandle* dir, const char* dirname);
 
 
-// erase a directory (the root dir can't be erase)
-// returns -1 on failure 0 on success
-int FS_eraseDir(DirHandle* dir, char* filename);
+// flushes written datas on mmaps
+int FS_flush(FirstDiskBlock* disk);
 
 
 

@@ -67,7 +67,7 @@ ListItem* List_detach(ListHead* head, ListItem* item) {
     return item;
 }
 
-// dipende da cosa puntano gli handle
+
 void List_destroy(ListHead* head) {
   
     if (head != NULL) {
@@ -76,12 +76,22 @@ void List_destroy(ListHead* head) {
           return;
         }
 
+        FileHandle* file;
+
         while(head->size != 0) {
-          ListItem* item = List_detach(head, head->first);
-          FileHandle* file = (FileHandle*) item;
-          // free item, dipende dai punatatori
+            ListItem* item = List_detach(head, head->first);
+            file = (FileHandle*) item;
+
+            if (file->current_block != NULL)
+                free(file->current_block);
+             if(file->first_block != NULL)
+                free(file->first_block);
+        
+            free(file);
         }
+        free(head);
     }
+
 
     return;
 }

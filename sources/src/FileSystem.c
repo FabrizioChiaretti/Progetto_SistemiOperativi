@@ -36,8 +36,6 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 			printf("init read root block\n");	
 			exit(EXIT_FAILURE);
 		}
-		root_handle->num_parent_block = -1;
-		root_handle->parentDir_num_entry = -1;
 		root_handle->fs = fs;
 	}
 	
@@ -54,8 +52,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		fs->fat = (int32_t*) (fs->first_block + fs->first_block->fat.first_fatBlock);
 		root_handle = (DirHandle*) malloc(sizeof(DirHandle));
 		root_handle->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
-		root_handle->num_parent_block = -1;
-		root_handle->parentDir_num_entry = -1;
+		memset(root_handle->first_block, 0, sizeof(FirstDirBlock));
 		root_handle->fs = fs;
 		const char* name = "rootdir";
 		strcpy(root_handle->first_block->header.name, name);
@@ -65,6 +62,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		root_handle->first_block->fcb.last_idx = 0;
 		root_handle->first_block->fcb.parent_block = -1;
 		root_handle->first_block->first_free_entry = 0;
+		root_handle->first_block->occupied = 0;
 		ret = driver_writeBlock(fs->first_block, 0, root_handle->first_block);
 		if (ret == -1) {
 			printf("init write root block\n");	
@@ -79,12 +77,10 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 
 	int32_t ret;
-	FileHandle* file_handle = NULL;
-	printf("avaible blocks: %d\n", dir->fs->first_block->fat.free_blocks);
 	int32_t first_idx = dir->first_block->fcb.first_idx;
-	fs* fs = dir->fs;
 	int32_t last_idx = dir->first_block->fcb.last_idx;
 	int32_t first_file_block_idx;
+	int32_t parent_block;
 
 	if (last_idx == first_idx) {  // we are in the first dir block
 		if (dir->first_block->first_free_entry == -1) {
@@ -106,6 +102,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			
 			block->first_blocks[0] = first_file_block_idx;
 			block->first_free_entry = 1;
+			block->occupied = 1;
 			ret = driver_writeBlock(dir->fs->first_block, free_idx, block);
 			if (ret == -1) {
 				free(block);
@@ -113,9 +110,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 				return NULL;
 			}
 			free(block);
-			file_handle = (FileHandle*) malloc(sizeof(FileHandle));
-			file_handle->num_parent_block = free_idx;
-			file_handle->parentDir_num_entry = 0;
+			parent_block = dir->first_block->fcb.last_idx;
 		}
 		else {
 			first_file_block_idx = driver_getfreeBlock(dir->fs->first_block);
@@ -126,6 +121,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 
 			int32_t aux = dir->first_block->first_free_entry;
 			dir->first_block->first_blocks[aux] = first_file_block_idx;
+			dir->first_block->occupied++;
 			int i;
 			for (i = aux+1; i < sizeof(dir->first_block->first_blocks)/sizeof(int32_t); i++) {
 				if (dir->first_block->first_blocks[i] == 0) {
@@ -135,16 +131,13 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			}
 			if (i == sizeof(dir->first_block->first_blocks)/sizeof(int32_t) -1)
 				dir->first_block->first_free_entry = -1;
-			
-			file_handle = (FileHandle*) malloc(sizeof(FileHandle));
-			file_handle->num_parent_block = dir->first_block->fcb.first_idx;
-			file_handle->parentDir_num_entry = aux;
+			parent_block = dir->first_block->fcb.first_idx;
 		}
 
 	}
 
 	else {
-		DirBlock* block = malloc(sizeof(DirBlock));
+		DirBlock* block = (DirBlock*) malloc(sizeof(DirBlock));
 		ret = driver_readBlock(dir->fs->first_block, last_idx, block);
 		if (ret == -1) {
 			free(block);
@@ -160,6 +153,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			}
 			int32_t aux = block->first_free_entry;
 			block->first_blocks[aux] = first_file_block_idx;
+			block->occupied++;
 			int i;
 			for (i = aux+1; i < sizeof(block->first_blocks)/sizeof(int32_t); i++) {
 				if (block->first_blocks[i] == 0) {
@@ -176,10 +170,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 				free(block);
 				return NULL;
 			}
-
-			file_handle = (FileHandle*) malloc(sizeof(FileHandle));
-			file_handle->num_parent_block = last_idx;
-			file_handle->parentDir_num_entry = aux;
+			parent_block = dir->first_block->fcb.last_idx;
 		}
 		else {
 			int32_t free_idx = driver_getfreeBlock(dir->fs->first_block);
@@ -197,19 +188,19 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			}
 			block->first_blocks[0] = first_file_block_idx;
 			block->first_free_entry = 1;
+			block->occupied++;
 			ret = driver_writeBlock(dir->fs->first_block, free_idx, block);
 			if (ret == -1) {
 				printf("write block error\n");
 				return NULL;
 			}
-			file_handle = (FileHandle*) malloc(sizeof(FileHandle));
-			file_handle->num_parent_block = dir->first_block->fcb.last_idx;
-			file_handle->parentDir_num_entry = 0;
 		}
 		free(block);
+		parent_block = dir->first_block->fcb.last_idx;
 	}
 
 	dir->first_block->fcb.dim++;
+	FileHandle* file_handle = (FileHandle*) malloc(sizeof(FileHandle));
 	file_handle->pos = 0;
 	file_handle->mode = WR;
 	file_handle->first_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
@@ -217,14 +208,19 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 	file_handle->first_block->header.flag = FL;
 	strcpy(file_handle->first_block->header.name, filename);
 	file_handle->first_block->fcb.dim = 0;
-	file_handle->first_block->fcb.parent_block = file_handle->num_parent_block;
-	file_handle->first_block->fcb.first_idx = dir->first_block->first_blocks[file_handle->parentDir_num_entry];
+	file_handle->first_block->fcb.parent_block = parent_block;
+	file_handle->first_block->fcb.first_idx = first_file_block_idx;
 	file_handle->first_block->fcb.last_idx = file_handle->first_block->fcb.first_idx; 
 	file_handle->current_block = NULL;
 
-	//List_insert(dir->open_files, (ListItem*) file_handle);
+	List_insert(dir->open_files, (ListItem*) file_handle);
 
-	printf("avaible blocks: %d\n", dir->fs->first_block->fat.free_blocks);
+	ret = driver_writeBlock(dir->fs->first_block, file_handle->first_block->fcb.first_idx, file_handle->first_block);
+	if (ret == -1) {
+		printf("write block error\n");
+		return NULL;
+	}
+
 	return file_handle;	
 }
 
@@ -234,7 +230,7 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	
 	// checking that the file isn't already open
 	if (List_find(dir->open_files, filename)) {
-		printf("file %s is already open", filename);
+		printf("file %s is already open\n", filename);
 		return NULL;
 	}
 
@@ -244,9 +240,8 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	int32_t last_idx = dir->first_block->fcb.last_idx;
 	int32_t file_idx;
 	int find = 0;
-	FirstFileBlock* first_file_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+	void* first_file_block = (void*) malloc(sizeof(FirstFileBlock));
 	DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
-	int num_entry;
 	int parent_block;
 
 	int i;
@@ -264,11 +259,14 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 						free(dir_block);
 						return NULL;
 					}
-					if (strcmp(filename, first_file_block->header.name) == 0) {
-						find = 1;
-						num_entry = i;
-						parent_block = dir->first_block->fcb.first_idx;
-						break;
+					FileBlockHeader* header = (FileBlockHeader*) first_file_block;
+					if (header->flag == FL) {
+						FirstFileBlock* block = (FirstFileBlock*) first_file_block;
+						if (strcmp(filename, block->header.name) == 0) {
+							find = 1;
+							parent_block = dir->first_block->fcb.first_idx;
+							break;
+						}
 					}
 				}
 			}
@@ -277,12 +275,12 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 		else {
 			memset(dir_block, 0, sizeof(DirBlock));
 			ret = driver_readBlock(dir->fs->first_block, current_idx, dir_block);
-				if (ret == -1) {
-					printf("read block error\n");
-					free(first_file_block);
-					free(dir_block);
-					return NULL;
-				}
+			if (ret == -1) {
+				printf("read block error\n");
+				free(first_file_block);
+				free(dir_block);
+				return NULL;
+			}
 			for (i = 0; i < (BLOCK_DIM - sizeof(int32_t))/sizeof(int32_t); i++) {  
 				if (dir_block->first_blocks[i] != 0) {
 					num_entries--;
@@ -295,11 +293,14 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 						free(dir_block);
 						return NULL;
 					}
-					if (strcmp(filename, first_file_block->header.name) == 0) {
-						find = 1;
-						num_entry = i;
-						parent_block = current_idx;
-						break;
+					FileBlockHeader* header = (FileBlockHeader*) first_file_block;
+					if (header->flag == FL) {
+						FirstFileBlock* block = (FirstFileBlock*) first_file_block;
+						if (strcmp(filename, block->header.name) == 0) {
+							find = 1;
+							parent_block = dir->first_block->fcb.first_idx;
+							break;
+						}
 					}
 				}
 			}
@@ -319,13 +320,11 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	}
 
 	FileHandle* handle = (FileHandle*) malloc(sizeof(FileHandle));
-	handle->first_block = first_file_block;
+	handle->first_block = (FirstFileBlock*) first_file_block;
 	
 	handle->current_block = NULL;
 	handle->mode = mode;
 	handle->pos = 0;
-	handle->num_parent_block = parent_block;
-	handle->parentDir_num_entry = num_entry;
 	List_insert(dir->open_files, (ListItem*) handle);
 
 	if (dir_block != NULL)
@@ -337,7 +336,315 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 
 
 
-int driver_flush(FirstDiskBlock* disk) { 
+int FS_close(DirHandle* dir, FileHandle* file) {
+	
+	FileHandle* detached = (FileHandle*) List_detach(dir->open_files, (ListItem*) file);
+	
+	if (detached->current_block != NULL)
+		free(detached->current_block);
+
+	free(detached->first_block);
+	free(detached);
+
+	return 0;
+}
+
+
+
+int FS_mkdir(DirHandle* dir, const char* dirname) {
+	
+	int32_t first_dir_idx;
+	int32_t parent_idx;
+	int32_t num_entries = dir->first_block->fcb.dim; 
+
+	if (num_entries <= sizeof(dir->first_block->first_blocks) / sizeof(int32_t)) { // first dir block
+
+		if (num_entries == sizeof(dir->first_block->first_blocks) / sizeof(int32_t)) {
+			int32_t free_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (free_idx == -1) {
+				printf("there is not free blocks\n");
+				return -1;
+			}
+			dir->fs->fat[dir->first_block->fcb.first_idx] = free_idx;
+			dir->first_block->fcb.last_idx = free_idx;
+			DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
+			memset(dir_block, 0, sizeof(DirBlock));
+			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (first_dir_idx == -1) {
+				printf("there is not free blocks\n");
+				free(dir_block);
+				return -1;
+			}
+			dir_block->first_blocks[0] = first_dir_idx; 
+			dir_block->first_free_entry = 1;
+			dir_block->occupied = 1;
+			if (driver_writeBlock(dir->fs->first_block, free_idx, dir_block) == -1) {
+				printf("write dir block error\n");
+				free(dir_block);
+				return -1;
+			}
+			parent_idx = free_idx;
+			free(dir_block);
+		}
+
+		else {
+			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (first_dir_idx == -1) {
+				printf("there is not free blocks\n");
+				return -1;
+			}
+			parent_idx = dir->first_block->fcb.first_idx;
+			dir->first_block->first_blocks[dir->first_block->first_free_entry] = first_dir_idx;
+			dir->first_block->occupied++;
+			int i = dir->first_block->first_free_entry +1;
+			for (i; i < sizeof(dir->first_block->first_blocks) / sizeof(int32_t); i++) {
+				if (dir->first_block->first_blocks[i] == 0) {
+					dir->first_block->first_free_entry = i;
+					break;
+				}
+			}
+		}
+	}
+
+	else {
+		int32_t last_idx = dir->first_block->fcb.last_idx;
+		DirBlock* dir_block = (DirBlock*) (malloc(sizeof(DirBlock)));
+		memset(dir_block, 0, sizeof(DirBlock));
+		int ret = driver_readBlock(dir->fs->first_block, last_idx, dir_block);
+		if (ret == -1) {
+			printf("read block error\n");
+			free(dir_block);
+			return -1;
+		}
+		int32_t free_idx;
+		if (dir_block->first_free_entry == -1) {
+			free_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (free_idx == -1) {
+				printf("there is not free blocks\n");
+				free(dir_block);
+				return -1;
+			}
+			dir->fs->fat[dir->first_block->fcb.last_idx] = free_idx;
+			dir->first_block->fcb.last_idx = free_idx;
+			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (first_dir_idx == -1) {
+				printf("there is not free blocks\n");
+				free(dir_block);
+				return -1;
+			}
+			dir_block->first_blocks[0] = first_dir_idx;
+			dir_block->first_free_entry = 1;	
+			dir_block->occupied = 1;
+			parent_idx = free_idx;
+
+			if (driver_writeBlock(dir->fs->first_block, free_idx, dir_block) == -1) {
+				printf("write dir block error\n");
+				free(dir_block);
+				return -1;
+			}
+		}
+
+		else {
+			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
+			if (first_dir_idx == -1) {
+				printf("there is not free blocks\n");
+				free(dir_block);
+				return -1;
+			}
+			parent_idx = last_idx;
+			dir_block->first_blocks[dir_block->first_free_entry] = first_dir_idx;
+			dir_block->occupied++;
+			int i = dir_block->first_free_entry +1;
+			for (i; i < sizeof(dir_block->first_blocks) / sizeof(int32_t); i++) {
+				if (dir_block->first_blocks[i] == 0) {
+					dir_block->first_free_entry = i;
+					break;
+				}
+			}			
+		}
+
+		free(dir_block);
+	}
+
+	dir->first_block->fcb.dim++;
+
+	FirstDirBlock* dir_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
+	memset(dir_block, 0, sizeof(DirBlock));
+	dir_block->header.flag = DIR;
+	strcpy(dir_block->header.name, dirname);
+	dir_block->first_free_entry = 0;
+	dir_block->fcb.dim = 0;
+	dir_block->fcb.first_idx = dir_block->fcb.last_idx = first_dir_idx;
+	dir_block->fcb.parent_block = parent_idx;
+
+	if (driver_writeBlock(dir->fs->first_block, dir_block->fcb.first_idx, dir_block) == -1) {
+		printf("write dir block error\n");
+		free(dir_block);
+		return -1;
+	}
+
+	free(dir_block);
+
+	return 0;
+}
+
+
+
+int FS_listing(DirHandle* dir, char** file_names) {
+
+	int result = 0;
+	int32_t num_entries = dir->first_block->fcb.dim;
+	for (int i = 0; i < num_entries; i++) 
+		file_names[i] = (char*) malloc(sizeof(char)*(MAX_LENGHT_NAME+1+6)); // 1 for '\0' and 6 for '(file)' or '(dir)'
+	FileBlockHeader* header;
+	void* block = (void*) malloc(BLOCK_DIM);
+	DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
+	memset(dir_block, 0, BLOCK_DIM);
+	memcpy(dir_block->first_blocks, dir->first_block->first_blocks, sizeof(dir->first_block->first_blocks));
+	int32_t current_idx = dir->first_block->fcb.first_idx;
+	int32_t occupied = dir->first_block->occupied;
+	int32_t entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
+	int ret;
+	int j = 0;
+	char* flag;
+
+	while (1) {
+		for (int i = 0; i < entries_block && occupied != 0; i++) {
+			if (dir_block->first_blocks[i] != 0) {
+				occupied--;
+				ret = driver_readBlock(dir->fs->first_block, dir_block->first_blocks[i], block);
+				if (ret == -1) {
+					printf("read file_block error\n");
+					free(dir_block);
+					return 0;
+				}
+				header = (FileBlockHeader*) block;
+				if (header->flag == FL) {
+					flag = "(file)";
+				}
+				else { 
+					flag = "(dir)";
+				}
+				strcpy(file_names[j], header->name);
+				strcat(file_names[j], flag);
+				j++;
+				result++;
+			}
+		}
+
+		if (current_idx == dir->first_block->fcb.last_idx) 
+			break;
+		
+		else {
+			current_idx = dir->fs->fat[current_idx];
+			ret = driver_readBlock(dir->fs->first_block, current_idx, dir_block);
+			if (ret == -1) {
+				printf("read dir_block error\n");
+				free(dir_block);
+				return 0;
+			}
+			occupied = dir_block->occupied; 
+		} 
+	}
+
+	free(dir_block);
+
+	return result;
+}
+
+
+
+int FS_changeDir(DirHandle* dir, char* dirname) {
+
+	int ret = driver_writeBlock(dir->fs->first_block, dir->first_block->fcb.first_idx, dir->first_block);
+	if (ret == -1) {
+		printf("write current first_dir block error\n");
+		return -1;
+	}
+
+	int32_t num_entries = dir->first_block->fcb.dim;
+	FileBlockHeader* header;
+	void* block = (void*) malloc(BLOCK_DIM);
+	DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
+	memset(dir_block, 0, BLOCK_DIM);
+	memcpy(dir_block->first_blocks, dir->first_block->first_blocks, sizeof(dir->first_block->first_blocks));
+	int32_t current_idx = dir->first_block->fcb.first_idx;
+	int32_t occupied = dir->first_block->occupied;
+	int32_t entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
+	int find = 0;
+	int32_t first_dir_idx;
+
+	while (1) {
+		for (int i = 0; i < entries_block && occupied != 0 && !find; i++) {
+			if (dir_block->first_blocks[i] != 0) {
+				occupied--;
+				ret = driver_readBlock(dir->fs->first_block, dir_block->first_blocks[i], block);
+				if (ret == -1) {
+					printf("read file_block error\n");
+					free(dir_block);
+					return 0;
+				}
+				header = (FileBlockHeader*) block;
+				if (header->flag == DIR) {
+					if (strcmp(header->name, dirname) == 0) {
+						first_dir_idx = dir_block->first_blocks[i];
+						find = 1;
+						break;
+					}
+				}
+			}
+		}
+
+		if (find || !find && current_idx == dir->first_block->fcb.last_idx)
+			break;
+		
+		else {
+			current_idx = dir->fs->fat[current_idx];
+			ret = driver_readBlock(dir->fs->first_block, current_idx, dir_block);
+			if (ret == -1) {
+				printf("read dir_block error\n");
+				free(dir_block);
+				free(block);
+				return 0;
+			}
+			occupied = dir_block->occupied; 
+		} 
+	}
+
+	if (!find) {
+		printf("dir %s does not exists\n", dirname);
+		return -1;
+	}
+
+	if (dir->open_files->size != 0) 
+		List_destroy(dir->open_files);
+
+	memset(dir->first_block, 0, sizeof(FirstDirBlock));	
+	dir->open_files = (ListHead*) malloc(sizeof(ListHead));
+	List_init(dir->open_files);
+	dir->first_block = (FirstDirBlock*) block;
+
+	free(dir_block);
+	return 0;
+}
+
+
+
+int FS_remove(DirHandle* dir, const char* filename) {
+	
+	if (List_find(dir->open_files, filename)) { 
+		printf("close the file and try again to remove\n");
+		return -1;
+	}
+
+	//int ret = remove_aux();
+
+	return 0;
+}
+
+
+
+int FS_flush(FirstDiskBlock* disk) { 
     int ret = msync(disk, disk->header.disk_dim, MS_SYNC);
     if (ret == -1)
         printf("flush error\n");

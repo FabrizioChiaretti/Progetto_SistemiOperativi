@@ -9,10 +9,6 @@
 #define LAST_BLOCK -1
 #define FREE_BLOCK -2
 
-// flags for header
-#define ROOTDIR 2
-#define DIR 1
-#define FL 0
 
 
 
@@ -66,8 +62,6 @@ int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num);
 int driver_getfreeBlock(FirstDiskBlock* disk);
 
 
-// if flush_fat is 1 flushes the block in block_num position and the fat, otherwise only the block
-int driver_flush(FirstDiskBlock* disk, int32_t block_num, int8_t flush_fat);
 
 
 
