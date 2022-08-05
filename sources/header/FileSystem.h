@@ -63,7 +63,7 @@ typedef struct {
 
 
 typedef struct {
-	int16_t free;
+	int16_t occupied;
 	char block[BLOCK_DIM - sizeof(int16_t)];
 } FileBlock;
 
@@ -94,6 +94,7 @@ typedef struct {
 	int mode; // mode open file
 	FirstFileBlock* first_block; 
 	FileBlock* current_block;
+	fs* fs;
 	int32_t pos; // in bytes, from SEEK_SET
 } FileHandle; 
 
