@@ -203,6 +203,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 	FileHandle* file_handle = (FileHandle*) malloc(sizeof(FileHandle));
 	file_handle->pos = 0;
 	file_handle->mode = WR;
+	file_handle->fs = dir->fs;
 	file_handle->first_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
 	file_handle->first_block->occupied = 0;
 	file_handle->first_block->header.flag = FL;
@@ -325,6 +326,7 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	handle->current_block = NULL;
 	handle->mode = mode;
 	handle->pos = 0;
+	handle->fs = dir->fs;
 	List_insert(dir->open_files, (ListItem*) handle);
 
 	if (dir_block != NULL)
@@ -626,6 +628,149 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 
 	free(dir_block);
 	return 0;
+}
+
+
+
+int FS_write(FileHandle* file, void* data, int size) {
+
+	int ret;
+	int written = 0;
+	int pos = file->pos;
+	int to_write;
+	char* data_pos = (char*) data;
+	int free_bytes;
+	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
+	int32_t offset;
+	int32_t block_offset;
+	int32_t current_idx;
+
+	while (written != size) {
+
+		memset(file_block, 0, sizeof(FileBlock));
+		printf("written: %d\n", written);
+		if (pos < sizeof(file->first_block->block) -1) {
+			free_bytes = sizeof(file->first_block->block) - pos -1;
+			if (size - free_bytes > 0) 
+				to_write = free_bytes;
+			else
+				to_write = size;
+
+			memcpy(file->first_block->block+pos, data_pos, to_write);
+			file->first_block->occupied += to_write;
+			ret = driver_writeBlock(file->fs->first_block, file->first_block->fcb.first_idx, file->first_block);
+			if (ret == -1) {
+				printf("write block error\n");
+				free(file_block);
+				return written;
+			}
+			written += to_write;
+			pos += to_write;
+			printf("pos: %d\n", pos);
+			data_pos += to_write;
+		}
+		else if (pos == sizeof(file->first_block->block)-1) {
+			if (file->first_block->fcb.first_idx != file->first_block->fcb.last_idx) {
+				current_idx = file->fs->fat[current_idx];
+				ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+				if (ret == -1) {
+					printf("read block error\n");
+					free(file_block);
+					return written;
+				}
+			}
+			else {
+				current_idx = driver_getfreeBlock(file->fs->first_block);
+				if (ret == -1) {
+					printf("there are not free blocks\n");
+					free(file_block);
+					return written;
+				}
+				file->fs->fat[file->first_block->fcb.first_idx] = current_idx;
+				file->first_block->fcb.last_idx = current_idx;
+			}
+			
+			free_bytes = sizeof(file_block->block)-1;
+			if (size - free_bytes > 0) 
+				to_write = free_bytes;
+			else 
+				to_write = size;
+
+			if (file_block->occupied < to_write)
+				file_block->occupied = to_write;
+	
+			memcpy(file_block->block, data_pos, to_write);
+			ret = driver_writeBlock(file->fs->first_block, current_idx, file_block);
+			if (ret == -1) {
+				printf("write block error\n");
+				free(file_block);
+				return written;
+			}
+			written += to_write;
+			pos += to_write;
+			printf("pos: %d\n", pos);
+			data_pos += to_write;			
+		}
+		else {
+			if ((pos - sizeof(file->first_block->block) -1) % (sizeof(file_block->block)-1) == 0) {
+				ret = driver_getfreeBlock(file->fs->first_block);
+				if (ret == -1) {
+					printf("there are not free blocks\n");
+					free(file_block);
+					return written;
+				}
+				file->fs->fat[last_idx] = ret;
+				file->first_block->fcb.last_idx = ret;
+				last_idx = ret;
+				free_bytes = sizeof(file_block->block)-1;
+
+				if (size - free_bytes > 0) 
+					to_write = free_bytes;
+				else 
+					to_write = size;
+			
+				file_block->occupied = to_write;
+				memcpy(file_block->block, data_pos, to_write);
+				ret = driver_writeBlock(file->fs->first_block, file->first_block->fcb.last_idx, file_block);
+				if (ret == -1) {
+					printf("write block error\n");
+					free(file_block);
+					return written;
+				}
+				written += to_write;
+				pos += to_write;
+				printf("pos: %d\n", pos);
+				data_pos += to_write;			
+			}
+			else {
+				free_bytes = block_offset-1;
+				if (size - free_bytes > 0) 
+					to_write = free_bytes;
+				else 
+					to_write = size;
+
+				file_block->occupied += to_write;
+				memcpy(file_block->block + file_block->occupied+1, data_pos, to_write);
+				ret = driver_writeBlock(file->fs->first_block, file->first_block->fcb.last_idx, file_block);
+				if (ret == -1) {
+					printf("write block error\n");
+					free(file_block);
+					return written;
+				}
+				written += to_write;
+				pos += to_write;
+				printf("pos: %d\n", pos);
+				data_pos += to_write;				
+			}
+		}
+
+	}
+
+	free(file_block);
+	file->pos = pos;
+	printf("esco, written: %d\n", written);
+
+	return written;
 }
 
 

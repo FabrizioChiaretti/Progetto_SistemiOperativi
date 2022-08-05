@@ -51,8 +51,8 @@ int main () {
 		exit(EXIT_FAILURE);
 	}
 	printf("ok\n");
-	return EXIT_SUCCESS;*/
-	ListHead* head = (ListHead*) malloc(sizeof(ListHead));
+	return EXIT_SUCCESS;
+	/ListHead* head = (ListHead*) malloc(sizeof(ListHead));
 	List_init(head);
 	char* arr;
 	for (int i = 0; i < 5; i++) {
@@ -95,7 +95,11 @@ int main () {
 			List_detach(head, item);
 		}
 		List_print(head);
-	}
+	}*/
+	FileBlock* file = (FileBlock*) malloc(sizeof(FileBlock));
+	memset(file, 0, sizeof(FileBlock));
+	strcpy(file->block, "mario rossi");
+	printf("%s\n", file->block);
 }
 
 
