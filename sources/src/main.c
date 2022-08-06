@@ -71,7 +71,7 @@ int main (int argc, char** argv) {
 		}
 	}
 
-	printf("////////////////////\n");
+	file = (FileHandle*) current_dir->open_files->first;
 	char* block1 = "Ti sta scomparendo il tanga Tanga in mezzo alle chiappe La mia tipa chiama pensa che ci siano altre Con me nella stessa stanza sono in ciabatte sto fumando ganja Ganja vado su marte Hermano Kaleb che passa dall’Argentina all’Italia c’ho la tua tipa che chiama (hace calor) Tu sei una Hakuna matata ma senza alcuna patata tamo ganando un milion Hace calor Hace calor Hace calor Hace calor ";
 	char * block2 = "Ho visto l'Amazzonia tra i fumi della città Nera come la macchina, dai, portami mia da qua Mi dai fastidio se mi fai video Tramonto chimico, balliamo in bilico Sulla schiena, fiume in piena Notte fonda, Macarena Brucia lenta l'atmosfera diventa magica E maledetta l'estate Col suono delle sirene, delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace Notta fonda, luna piena Tropicana, Macarena Ballo anche se arriva il temporale (baila) La senti l'aria? La senti l'aria? La gente brava sbaglia la strada Gira il mondo quando ti muovi tu Suonano i tamburi della tribù Bedda guarda che questa giungla è scura Fa paura solo se guardi giù Ancora questo è il nostro momento Un giorno come adesso non ritorna più Quando mi sveglio in mezzo al cemento Con te il cielo sembra più blu E maledetta l'estate Col suono delle sirene delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace";
 	char* block3 = " mario rossi";
@@ -109,6 +109,15 @@ int main (int argc, char** argv) {
 			break;
 	}
 	printf("\n");
+	printf("//////////////////////\n");
+
+	char* block = (char*) malloc(sizeof(1001));
+	*block = '\0';
+	file->pos = 0;
+	file->current_block = 0;
+	ret = FS_read(file, block, 1000);
+	printf("result: %d\n", ret);
+	printf("%s\n", block);
 
 	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);

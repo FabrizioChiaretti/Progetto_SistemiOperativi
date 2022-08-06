@@ -581,6 +581,7 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 				if (ret == -1) {
 					printf("read file_block error\n");
 					free(dir_block);
+					free(block);
 					return 0;
 				}
 				header = (FileBlockHeader*) block;
@@ -612,6 +613,8 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 
 	if (!find) {
 		printf("dir %s does not exists\n", dirname);
+		free(dir_block);
+		free(block);
 		return -1;
 	}
 
@@ -637,6 +640,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 	int to_write;
 	char* data_pos = (char*) data;
 	int free_bytes;
+	int dim = file->first_block->fcb.dim;
 	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
 	int32_t offset = sizeof(file->first_block->block);
 	int32_t block_offset = 0;
@@ -657,8 +661,11 @@ int FS_write(FileHandle* file, void* data, int size) {
 				to_write = size_block;
 
 			memcpy(file->first_block->block+pos, data_pos, to_write);
-			if (file->first_block->occupied < to_write)
-				file->first_block->occupied = to_write;
+			if (pos == dim)
+				dim += to_write;
+			else if (pos + to_write > dim) 
+				dim += pos + to_write - dim;
+
 			ret = driver_writeBlock(file->fs->first_block, file->first_block->fcb.first_idx, file->first_block);
 			if (ret == -1) {
 				printf("write block error\n");
@@ -671,6 +678,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 			size_block -= to_write;
 		}
 		else if (pos == sizeof(file->first_block->block)-1) {
+			int flag = 0;
 			file->current_block++;
 			if (file->first_block->fcb.first_idx != file->first_block->fcb.last_idx) {
 				current_idx = file->fs->fat[current_idx];
@@ -682,6 +690,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 				}
 			}
 			else {
+				flag = 1;
 				current_idx = driver_getfreeBlock(file->fs->first_block);
 				if (ret == -1) {
 					printf("there are not free blocks\n");
@@ -698,8 +707,12 @@ int FS_write(FileHandle* file, void* data, int size) {
 			else 
 				to_write = size_block;
 
-			if (file_block->occupied < to_write)
-				file_block->occupied = to_write;
+			if (flag) {
+				dim += to_write + 1;
+			}
+			else if (pos + to_write > dim) 	
+				dim += pos + to_write - dim;
+				
 	
 			memcpy(file_block->block, data_pos, to_write);
 			ret = driver_writeBlock(file->fs->first_block, current_idx, file_block);
@@ -733,7 +746,8 @@ int FS_write(FileHandle* file, void* data, int size) {
 					else 
 						to_write = size_block;
 					
-					file_block->occupied = to_write;
+					dim += to_write + 1;
+
 				}
 				else {
 					current_idx = file->fs->fat[current_idx];
@@ -750,8 +764,9 @@ int FS_write(FileHandle* file, void* data, int size) {
 					else 
 						to_write = size_block;
 					
-					if (file_block->occupied < to_write)
-						file_block->occupied = to_write;
+					if (pos + to_write > dim) 	
+						dim += pos + to_write - dim;
+					
 				}
 
 				memcpy(file_block->block, data_pos, to_write);
@@ -768,8 +783,6 @@ int FS_write(FileHandle* file, void* data, int size) {
 			}
 			else {
 				offset += (file->current_block)*sizeof(file_block->block);
-				printf("current idx: %d\n", file->current_block);
-				printf("offset: %d\n", offset);
 				ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
 				if (ret == -1) {
 					printf("read block error\n");
@@ -784,8 +797,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 				else 
 					to_write = size_block;
 
-				if (file_block->occupied < to_write) 
-					file_block->occupied = to_write;
+				dim += to_write;
 				
 				printf("to write: %d\n", to_write);
 
@@ -810,10 +822,107 @@ int FS_write(FileHandle* file, void* data, int size) {
 	}
 
 	file->pos = pos;
+	file->first_block->fcb.dim = dim;
 	free(file_block);
-	printf("esco, written: %d, pos: %d\n", written, pos);
+	printf("esco, written: %d, pos: %d, dim: %d\n", written, pos, dim);
 
 	return written;
+}
+
+
+
+int FS_read(FileHandle* file, void* data, int size) {
+
+	if (file->first_block->fcb.dim < file->pos + size) {
+		printf("invalid size read\n");
+		return -1;
+	}
+
+	int ret;
+	int result = 0;
+	char* block = (char*) data;
+	int pos = file->pos;
+	int size_block = size;
+	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
+	int32_t to_read;
+	int32_t offset = sizeof(file->first_block->block);
+	int32_t block_offset = 0;
+	int32_t current_idx = file->first_block->fcb.first_idx;
+	for (int i = 0; i < file->current_block; i++) {
+		current_idx = file->fs->fat[current_idx];
+	}
+
+	while (size_block != 0) {
+
+		if (pos < sizeof(file->first_block->block)-1) {
+
+			if (size_block - strlen(file->first_block->block) +pos >= 0) 
+				to_read = strlen(file->first_block->block) -pos;
+			else 
+				to_read = size_block;
+
+			strncat(block, file->first_block->block + pos, to_read);
+			printf("%s\n", file->first_block->block);
+			pos += to_read;
+			size_block -= to_read;
+			result += to_read;
+		}
+		else if (pos == sizeof(file->first_block->block)-1 || 
+				((pos - sizeof(file->first_block->block) +1) % (sizeof(file_block->block)) == 0)) {
+
+			current_idx = file->fs->fat[current_idx];
+			pos++;
+			file->current_block++;
+			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+			if (ret == -1) {
+				printf("read block error\n");
+				return result;
+			}
+	
+			if (size_block >  strlen(file_block->block)) {
+				to_read = strlen(file_block->block);
+			}
+			else {
+				to_read = size_block;
+			}
+			strncat(block, file_block->block, to_read);
+			printf("%s\n", file_block->block);
+			pos += to_read;
+			size_block -= to_read;
+			result += to_read;
+		}
+		else {
+			offset += (file->current_block)*sizeof(file_block->block);
+			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+			if (ret == -1) {
+				printf("read block error\n");
+				free(file_block);
+				return result;
+			}
+			int32_t avaibles = offset - pos -1;
+			int32_t block_offset = sizeof(file_block->block) - avaibles-1;
+
+			if (size_block - strlen(file_block->block) >= 0) {
+				to_read = strlen(file_block->block);
+			}
+			else 
+				to_read = size_block;
+
+			strncat(block + block_offset, file_block->block, to_read);
+			printf("%s\n", block);
+			pos += to_read;
+			size_block -= to_read;
+			result += to_read;
+		}
+		printf("pos: %d, result: %d\n", pos, result);
+		printf("size: %d\n", size_block);
+	}
+
+	file->pos = pos;
+
+	//free(file_block);
+
+	return result;
 }
 
 
