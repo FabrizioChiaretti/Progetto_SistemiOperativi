@@ -212,7 +212,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 	file_handle->first_block->fcb.parent_block = parent_block;
 	file_handle->first_block->fcb.first_idx = first_file_block_idx;
 	file_handle->first_block->fcb.last_idx = file_handle->first_block->fcb.first_idx; 
-	file_handle->current_block = NULL;
+	file_handle->current_block = 0;
 
 	List_insert(dir->open_files, (ListItem*) file_handle);
 
@@ -323,7 +323,7 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	FileHandle* handle = (FileHandle*) malloc(sizeof(FileHandle));
 	handle->first_block = (FirstFileBlock*) first_file_block;
 	
-	handle->current_block = NULL;
+	handle->current_block = 0;
 	handle->mode = mode;
 	handle->pos = 0;
 	handle->fs = dir->fs;
@@ -341,9 +341,6 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 int FS_close(DirHandle* dir, FileHandle* file) {
 	
 	FileHandle* detached = (FileHandle*) List_detach(dir->open_files, (ListItem*) file);
-	
-	if (detached->current_block != NULL)
-		free(detached->current_block);
 
 	free(detached->first_block);
 	free(detached);
@@ -645,6 +642,9 @@ int FS_write(FileHandle* file, void* data, int size) {
 	int32_t block_offset = 0;
 	int32_t current_idx = file->first_block->fcb.first_idx;
 	int32_t size_block = size;
+	for (int i = 0; i < file->current_block; i++) {
+		current_idx = file->fs->fat[current_idx];
+	}
 
 	while (written != size) {
 
@@ -671,6 +671,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 			size_block -= to_write;
 		}
 		else if (pos == sizeof(file->first_block->block)-1) {
+			file->current_block++;
 			if (file->first_block->fcb.first_idx != file->first_block->fcb.last_idx) {
 				current_idx = file->fs->fat[current_idx];
 				ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
@@ -691,7 +692,6 @@ int FS_write(FileHandle* file, void* data, int size) {
 				file->first_block->fcb.last_idx = current_idx;
 			}
 			
-			offset += sizeof(file_block->block);
 			free_bytes = sizeof(file_block->block)-1;
 			if (size_block - free_bytes > 0) 
 				to_write = free_bytes;
@@ -715,7 +715,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 		}
 		else {
 			if ((pos - sizeof(file->first_block->block) +1) % (sizeof(file_block->block)) == 0) {
-				offset += sizeof(file_block->block);
+				file->current_block++;
 				if (file->fs->fat[current_idx] == LAST_BLOCK) {
 					ret = driver_getfreeBlock(file->fs->first_block);
 					if (ret == -1) {
@@ -767,6 +767,9 @@ int FS_write(FileHandle* file, void* data, int size) {
 				size_block -= to_write;	
 			}
 			else {
+				offset += (file->current_block)*sizeof(file_block->block);
+				printf("current idx: %d\n", file->current_block);
+				printf("offset: %d\n", offset);
 				ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
 				if (ret == -1) {
 					printf("read block error\n");
@@ -783,8 +786,11 @@ int FS_write(FileHandle* file, void* data, int size) {
 
 				if (file_block->occupied < to_write) 
 					file_block->occupied = to_write;
+				
+				printf("to write: %d\n", to_write);
 
 				int32_t pos_block = sizeof(file_block->block) - block_offset; 
+				printf("block_pos: %d\n", pos_block);
 				memcpy(file_block->block + pos_block, data_pos, to_write);
 
 				ret = driver_writeBlock(file->fs->first_block, current_idx, file_block);

@@ -74,14 +74,21 @@ int main (int argc, char** argv) {
 	printf("////////////////////\n");
 	char* block1 = "Ti sta scomparendo il tanga Tanga in mezzo alle chiappe La mia tipa chiama pensa che ci siano altre Con me nella stessa stanza sono in ciabatte sto fumando ganja Ganja vado su marte Hermano Kaleb che passa dall’Argentina all’Italia c’ho la tua tipa che chiama (hace calor) Tu sei una Hakuna matata ma senza alcuna patata tamo ganando un milion Hace calor Hace calor Hace calor Hace calor ";
 	char * block2 = "Ho visto l'Amazzonia tra i fumi della città Nera come la macchina, dai, portami mia da qua Mi dai fastidio se mi fai video Tramonto chimico, balliamo in bilico Sulla schiena, fiume in piena Notte fonda, Macarena Brucia lenta l'atmosfera diventa magica E maledetta l'estate Col suono delle sirene, delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace Notta fonda, luna piena Tropicana, Macarena Ballo anche se arriva il temporale (baila) La senti l'aria? La senti l'aria? La gente brava sbaglia la strada Gira il mondo quando ti muovi tu Suonano i tamburi della tribù Bedda guarda che questa giungla è scura Fa paura solo se guardi giù Ancora questo è il nostro momento Un giorno come adesso non ritorna più Quando mi sveglio in mezzo al cemento Con te il cielo sembra più blu E maledetta l'estate Col suono delle sirene delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace";
+	char* block3 = " mario rossi";
 	int to_write1 = strlen(block1);
 	int to_write2 = strlen(block2);
+	int to_write3 = strlen(block3);
+	
 	printf("to_write1: %d, to_write2: %d\n", to_write1, to_write2);
 	file = (FileHandle*) current_dir->open_files->first;
 	ret = FS_write(file, (void*) block1, to_write1);
 	printf("write1 ok\n");
 	ret = FS_write(file, (void*) block2, to_write2);
 	printf("write2 ok\n");
+	ret = FS_write(file, (void*) block3, to_write3);
+	printf("write3 ok\n");
+
+
 	
 	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
 	int32_t current_idx = file->first_block->fcb.first_idx;

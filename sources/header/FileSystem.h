@@ -93,7 +93,7 @@ typedef struct {
 	ListItem item;
 	int mode; // mode open file
 	FirstFileBlock* first_block; 
-	FileBlock* current_block;
+	int32_t current_block; // relative index
 	fs* fs;
 	int32_t pos; // in bytes, from SEEK_SET
 } FileHandle; 

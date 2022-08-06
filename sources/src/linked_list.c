@@ -82,9 +82,7 @@ void List_destroy(ListHead* head) {
             ListItem* item = List_detach(head, head->first);
             file = (FileHandle*) item;
 
-            if (file->current_block != NULL)
-                free(file->current_block);
-             if(file->first_block != NULL)
+            if(file->first_block != NULL)
                 free(file->first_block);
         
             free(file);
