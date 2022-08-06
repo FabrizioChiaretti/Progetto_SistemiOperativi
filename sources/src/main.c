@@ -72,30 +72,36 @@ int main (int argc, char** argv) {
 	}
 
 	printf("////////////////////\n");
-	printf("size file block: %ld\n", sizeof(file->first_block->block));
 	char* block1 = "Ti sta scomparendo il tanga Tanga in mezzo alle chiappe La mia tipa chiama pensa che ci siano altre Con me nella stessa stanza sono in ciabatte sto fumando ganja Ganja vado su marte Hermano Kaleb che passa dall’Argentina all’Italia c’ho la tua tipa che chiama (hace calor) Tu sei una Hakuna matata ma senza alcuna patata tamo ganando un milion Hace calor Hace calor Hace calor Hace calor ";
 	char * block2 = "Ho visto l'Amazzonia tra i fumi della città Nera come la macchina, dai, portami mia da qua Mi dai fastidio se mi fai video Tramonto chimico, balliamo in bilico Sulla schiena, fiume in piena Notte fonda, Macarena Brucia lenta l'atmosfera diventa magica E maledetta l'estate Col suono delle sirene, delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace Notta fonda, luna piena Tropicana, Macarena Ballo anche se arriva il temporale (baila) La senti l'aria? La senti l'aria? La gente brava sbaglia la strada Gira il mondo quando ti muovi tu Suonano i tamburi della tribù Bedda guarda che questa giungla è scura Fa paura solo se guardi giù Ancora questo è il nostro momento Un giorno come adesso non ritorna più Quando mi sveglio in mezzo al cemento Con te il cielo sembra più blu E maledetta l'estate Col suono delle sirene delle cicale Tropicana, danza dolceamara Ballo anche se arriva il temporale E mi piace";
-	int to_write1 = strlen(block1)+1;
-	int to_write2 = strlen(block2)+1;
+	int to_write1 = strlen(block1);
+	int to_write2 = strlen(block2);
 	printf("to_write1: %d, to_write2: %d\n", to_write1, to_write2);
 	file = (FileHandle*) current_dir->open_files->first;
 	ret = FS_write(file, (void*) block1, to_write1);
-	printf("ret: %d\n", ret);
-	printf("pos: %d\n", file->pos);
 	printf("write1 ok\n");
 	ret = FS_write(file, (void*) block2, to_write2);
 	printf("write2 ok\n");
-	if (ret == to_write1 + to_write2) {
-		printf("ok\n");
-	}
 	
-	printf("%s\n", file->first_block->block);
 	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
-	ret = driver_readBlock(current_dir->fs->first_block, file->first_block->fcb.last_idx, file_block);
-	printf("%s\n", file_block->block);
-	printf("////////////////////\n");
-
-
+	int32_t current_idx = file->first_block->fcb.first_idx;
+	while (1) {
+		if (current_idx == file->first_block->fcb.first_idx) {
+			printf("%s ", file->first_block->block);
+		}
+		else {
+			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+			if (ret == -1) {
+				printf("read error block\n");
+				exit(EXIT_FAILURE);
+			}
+			printf("%s ", file_block->block);
+		}
+		current_idx = file->fs->fat[current_idx];
+		if (current_idx == -1)
+			break;
+	}
+	printf("\n");
 
 	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
