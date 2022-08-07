@@ -80,7 +80,6 @@ int main (int argc, char** argv) {
 	int to_write3 = strlen(block3);
 	
 	printf("to_write1: %d, to_write2: %d\n", to_write1, to_write2);
-	file = (FileHandle*) current_dir->open_files->first;
 	ret = FS_write(file, (void*) block1, to_write1);
 	printf("write1 ok\n");
 	ret = FS_write(file, (void*) block2, to_write2);
@@ -92,7 +91,7 @@ int main (int argc, char** argv) {
 	
 	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
 	int32_t current_idx = file->first_block->fcb.first_idx;
-	while (1) {
+	/*while (1) {
 		if (current_idx == file->first_block->fcb.first_idx) {
 			printf("%s ", file->first_block->block);
 		}
@@ -109,13 +108,13 @@ int main (int argc, char** argv) {
 			break;
 	}
 	printf("\n");
-	printf("//////////////////////\n");
+	printf("//////////////////////\n");*/
 
-	char* block = (char*) malloc(sizeof(1001));
+	char* block = (char*) malloc(1001);
 	*block = '\0';
 	file->pos = 0;
 	file->current_block = 0;
-	ret = FS_read(file, block, 1000);
+	ret = FS_read(file, (void*) block, 1000);
 	printf("result: %d\n", ret);
 	printf("%s\n", block);
 
@@ -123,6 +122,26 @@ int main (int argc, char** argv) {
 	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
 	printf("avaible blocks: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 	printf("open files: %d\n", root_dir_handle->open_files->size);
+	printf("%d\n",file->current_block);
+	
+	char* prova = (char*) malloc(353);
+	ret = FS_read(file, (void*) prova, 353);
+	printf("result: %d\n", ret);
+	printf("%s\n", prova);
+
+	file->pos = 532;
+	file->current_block = 1;
+	char* aux = (char*) malloc(200);
+	ret = FS_read(file, (void*) aux, 200);
+	printf("result: %d\n", ret);
+	printf("%s\n", aux);
+	printf("%ld\n", strlen(aux));
+	block2 += 137;
+	for (int i = 0; i < 200; i++) {
+		printf("%c", *block2);
+		block2++;
+	}
+	printf("\n");
 
 	ret = driver_writeBlock(current_dir->fs->first_block, 0, current_dir->first_block);
 	if(ret == -1) {

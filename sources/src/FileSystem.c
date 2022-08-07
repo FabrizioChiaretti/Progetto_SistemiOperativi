@@ -843,7 +843,6 @@ int FS_read(FileHandle* file, void* data, int size) {
 	char* block = (char*) data;
 	int pos = file->pos;
 	int size_block = size;
-	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
 	int32_t to_read;
 	int32_t offset = sizeof(file->first_block->block);
 	int32_t block_offset = 0;
@@ -852,7 +851,11 @@ int FS_read(FileHandle* file, void* data, int size) {
 		current_idx = file->fs->fat[current_idx];
 	}
 
+	FileBlock file_block;
+	FileBlock* aux = &file_block;
+
 	while (size_block != 0) {
+
 
 		if (pos < sizeof(file->first_block->block)-1) {
 
@@ -862,54 +865,57 @@ int FS_read(FileHandle* file, void* data, int size) {
 				to_read = size_block;
 
 			strncat(block, file->first_block->block + pos, to_read);
-			printf("%s\n", file->first_block->block);
 			pos += to_read;
 			size_block -= to_read;
 			result += to_read;
 		}
 		else if (pos == sizeof(file->first_block->block)-1 || 
-				((pos - sizeof(file->first_block->block) +1) % (sizeof(file_block->block)) == 0)) {
+				((pos - sizeof(file->first_block->block) +1) % (sizeof(aux->block)) == 0)) {
 
 			current_idx = file->fs->fat[current_idx];
 			pos++;
 			file->current_block++;
-			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+			ret = driver_readBlock(file->fs->first_block, current_idx, aux);
 			if (ret == -1) {
 				printf("read block error\n");
+				free(aux);
 				return result;
 			}
 	
-			if (size_block >  strlen(file_block->block)) {
-				to_read = strlen(file_block->block);
+			if (size_block >  strlen(aux->block)) {
+				to_read = strlen(aux->block);
 			}
 			else {
 				to_read = size_block;
 			}
-			strncat(block, file_block->block, to_read);
-			printf("%s\n", file_block->block);
+			
+			strncat(block, aux->block, to_read);
 			pos += to_read;
 			size_block -= to_read;
 			result += to_read;
 		}
 		else {
-			offset += (file->current_block)*sizeof(file_block->block);
-			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
+			offset += (file->current_block)*sizeof(aux->block);
+			printf("offset: %d\n", offset);
+			ret = driver_readBlock(file->fs->first_block, current_idx, aux);
 			if (ret == -1) {
 				printf("read block error\n");
-				free(file_block);
+				free(aux);
 				return result;
 			}
-			int32_t avaibles = offset - pos -1;
-			int32_t block_offset = sizeof(file_block->block) - avaibles-1;
+			int avaibles = offset - pos -1;
+			int block_offset = sizeof(aux->block) - avaibles-1;
 
-			if (size_block - strlen(file_block->block) >= 0) {
-				to_read = strlen(file_block->block);
+			printf("avaibles: %d, block_offset: %d\n", avaibles, block_offset);
+
+			if (size_block > strlen(aux->block)) {
+				to_read = strlen(aux->block);
 			}
 			else 
 				to_read = size_block;
 
-			strncat(block + block_offset, file_block->block, to_read);
-			printf("%s\n", block);
+			printf("to read: %d\n", to_read);
+			strncat(block, aux->block + block_offset, to_read);
 			pos += to_read;
 			size_block -= to_read;
 			result += to_read;
@@ -919,8 +925,6 @@ int FS_read(FileHandle* file, void* data, int size) {
 	}
 
 	file->pos = pos;
-
-	//free(file_block);
 
 	return result;
 }
