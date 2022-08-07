@@ -117,12 +117,6 @@ int main (int argc, char** argv) {
 	ret = FS_read(file, (void*) block, 1000);
 	printf("result: %d\n", ret);
 	printf("%s\n", block);
-
-	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
-	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
-	printf("avaible blocks: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
-	printf("open files: %d\n", root_dir_handle->open_files->size);
-	printf("%d\n",file->current_block);
 	
 	char* prova = (char*) malloc(353);
 	ret = FS_read(file, (void*) prova, 353);
@@ -142,12 +136,35 @@ int main (int argc, char** argv) {
 		block2++;
 	}
 	printf("\n");
+	printf("pos: %d, current_block: %d\n", file->pos, file->current_block);
+
+	ret = FS_seek(file, 40);
+
+	ret = driver_writeBlock(current_dir->fs->first_block, file->first_block->fcb.first_idx, file->first_block);
+	if(ret == -1) {
+		printf("write rootblock error\n");
+		exit(EXIT_FAILURE);
+	}
 
 	ret = driver_writeBlock(current_dir->fs->first_block, 0, current_dir->first_block);
 	if(ret == -1) {
 		printf("write rootblock error\n");
 		exit(EXIT_FAILURE);
 	}
+
+	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
+	printf("open files: %d\n", root_dir_handle->open_files->size);
+
+	char filename[30];
+	strcpy(filename, file->first_block->header.name);
+	ret = FS_close(current_dir, file);
+	ret = FS_eraseFile(current_dir, filename);
+
+	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
+	printf("open files: %d\n", root_dir_handle->open_files->size);
+
 	ret = FS_flush(fs_struct->first_block);
 	if(ret == -1) {
 		printf("flush error\n");

@@ -66,7 +66,6 @@ int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num) {
     if (disk->fat.first_free > block_num) {
         disk->fat.first_free = block_num;
     }
-    fat[block_num] = FREE_BLOCK;
     disk->fat.free_blocks++;
     void* disk_block = (void*) (disk + disk->rootDir_idx + block_num);
     memset(disk_block, 0, BLOCK_DIM); // clean block

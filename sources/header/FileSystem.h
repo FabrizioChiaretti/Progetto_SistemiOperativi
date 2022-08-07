@@ -121,9 +121,11 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename);
 
 // removes the file in the current directory
 // returns -1 on failure 0 on success
-// if a directory, it removes recursively all contained files
-int FS_remove(DirHandle* dir, const char* filename);
+int FS_eraseDir(DirHandle* dir, const char* dirname);
 
+// removes the dir in the current directory, removes recursively all contained files and directory
+// returns -1 on failure, 0 on success
+int FS_eraseFile(DirHandle* dir, const char* filename);
 
 // reads the name of all files in a directory 
 // returns the number of the dir file
