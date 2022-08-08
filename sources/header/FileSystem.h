@@ -84,8 +84,8 @@ typedef struct {
 
 typedef struct {
 	FirstDiskBlock* first_block;
-	int fd_disk;
 	int32_t* fat;
+	int fd_disk;
 } fs;
 
 

@@ -20,10 +20,16 @@ int main (int argc, char** argv) {
 
 	int ret;
 	fs* fs_struct = (fs*) malloc(sizeof(fs));
+	
 	DirHandle* root_dir_handle = FS_init(fs_struct, DISK_PATHNAME, DISK_DIM, BLOCK_DIM);
 	root_dir_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
 	List_init(root_dir_handle->open_files);
-	DirHandle* current_dir = root_dir_handle;
+	DirHandle* current_dir = (DirHandle*) malloc(sizeof(DirHandle));
+	current_dir->fs = root_dir_handle->fs;
+	current_dir->open_files = (ListHead*) malloc(sizeof(ListHead));
+	current_dir->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
+	List_init(current_dir->open_files);
+	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));
 
 	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  current_dir->first_block->first_free_entry);
@@ -31,7 +37,7 @@ int main (int argc, char** argv) {
 	printf("open files: %d\n", root_dir_handle->open_files->size);
 	FileHandle* file;
 
-	char* name;
+	char* name = "giulio";
 	for (int i = 0; i < 10; i++) {
 		if (i % 2) { 
 			if (i == 1)
@@ -89,9 +95,9 @@ int main (int argc, char** argv) {
 
 
 	
-	FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
+	/*FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
 	int32_t current_idx = file->first_block->fcb.first_idx;
-	/*while (1) {
+	while (1) {
 		if (current_idx == file->first_block->fcb.first_idx) {
 			printf("%s ", file->first_block->block);
 		}
@@ -123,23 +129,6 @@ int main (int argc, char** argv) {
 	printf("result: %d\n", ret);
 	printf("%s\n", prova);
 
-	file->pos = 532;
-	file->current_block = 1;
-	char* aux = (char*) malloc(200);
-	ret = FS_read(file, (void*) aux, 200);
-	printf("result: %d\n", ret);
-	printf("%s\n", aux);
-	printf("%ld\n", strlen(aux));
-	block2 += 137;
-	for (int i = 0; i < 200; i++) {
-		printf("%c", *block2);
-		block2++;
-	}
-	printf("\n");
-	printf("pos: %d, current_block: %d\n", file->pos, file->current_block);
-
-	ret = FS_seek(file, 40);
-
 	ret = driver_writeBlock(current_dir->fs->first_block, file->first_block->fcb.first_idx, file->first_block);
 	if(ret == -1) {
 		printf("write rootblock error\n");
@@ -159,7 +148,47 @@ int main (int argc, char** argv) {
 	char filename[30];
 	strcpy(filename, file->first_block->header.name);
 	ret = FS_close(current_dir, file);
+
+	char** ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
+	ret = FS_listing(current_dir, ls_dir);
+	printf("result: %d, entries: %d\n", ret, current_dir->first_block->fcb.dim);
+	for (int i = 0; i < current_dir->first_block->fcb.dim; i++) {
+		printf("%s\n", ls_dir[i]);
+	}
+	printf("\n");
+	free(ls_dir);
 	ret = FS_eraseFile(current_dir, filename);
+
+	ret = FS_eraseDir(current_dir, "pitagora");
+
+	ret = FS_changeDir(current_dir, "cicerone");
+
+	for (int i = 0; i < 2; i++) {
+		if (i == 0)
+			name = "bruto";
+		else 
+			name = "cassio";
+		file = FS_createFile(current_dir, name);
+	}
+
+	for (int i = 0; i < 2; i++) {
+		if (i == 0)
+			name = "Manzoni";
+		else 
+			name = "Alighieri";
+			ret = FS_mkdir(current_dir, name);
+	}
+
+	ret = FS_eraseDir(root_dir_handle, "cicerone");
+
+	ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
+	ret = FS_listing(current_dir, ls_dir);
+	printf("result: %d, entries: %d\n", ret, current_dir->first_block->fcb.dim);
+	for (int i = 0; i < current_dir->first_block->fcb.dim; i++) {
+		printf("%s\n", ls_dir[i]);
+	}
+	printf("\n");
+	
 
 	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);

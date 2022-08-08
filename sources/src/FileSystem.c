@@ -198,13 +198,13 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		free(block);
 		parent_block = dir->first_block->fcb.last_idx;
 	}
-
 	dir->first_block->fcb.dim++;
-	FileHandle* file_handle = (FileHandle*) malloc(sizeof(FileHandle));
+	FileHandle* file_handle = (FileHandle*) calloc(1, sizeof(FileHandle));
 	file_handle->pos = 0;
 	file_handle->mode = WR;
 	file_handle->fs = dir->fs;
 	file_handle->first_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+	memset(file_handle->first_block, 0, sizeof(FirstFileBlock));
 	file_handle->first_block->occupied = 0;
 	file_handle->first_block->header.flag = FL;
 	strcpy(file_handle->first_block->header.name, filename);
@@ -407,7 +407,7 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 
 	else {
 		int32_t last_idx = dir->first_block->fcb.last_idx;
-		DirBlock* dir_block = (DirBlock*) (malloc(sizeof(DirBlock)));
+		DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
 		memset(dir_block, 0, sizeof(DirBlock));
 		int ret = driver_readBlock(dir->fs->first_block, last_idx, dir_block);
 		if (ret == -1) {
@@ -555,6 +555,11 @@ int FS_listing(DirHandle* dir, char** file_names) {
 
 int FS_changeDir(DirHandle* dir, char* dirname) {
 
+	if (dir->open_files->size != 0) {
+		printf("close all files and try again\n");
+		return -1;
+	}
+
 	int ret = driver_writeBlock(dir->fs->first_block, dir->first_block->fcb.first_idx, dir->first_block);
 	if (ret == -1) {
 		printf("write current first_dir block error\n");
@@ -618,15 +623,10 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 		return -1;
 	}
 
-	if (dir->open_files->size != 0) 
-		List_destroy(dir->open_files);
-
 	memset(dir->first_block, 0, sizeof(FirstDirBlock));	
-	dir->open_files = (ListHead*) malloc(sizeof(ListHead));
-	List_init(dir->open_files);
 	dir->first_block = (FirstDirBlock*) block;
-
 	free(dir_block);
+
 	return 0;
 }
 
@@ -851,9 +851,8 @@ int FS_read(FileHandle* file, void* data, int size) {
 		current_idx = file->fs->fat[current_idx];
 	}
 
-	FileBlock file_block;
-	FileBlock* aux = &file_block;
-
+	//FileBlock* aux = &file_block;
+ 	FileBlock* aux = (FileBlock*)malloc(sizeof(FileBlock));
 	while (size_block != 0) {
 
 
@@ -1026,12 +1025,14 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 	}
 
 	dir->first_block->fcb.dim--;
+	dir_block->first_blocks[i] = 0;
 
 	dir_block->occupied--;
 	if (i < dir_block->first_free_entry)
 		dir_block->first_free_entry = i;
 
 	if (current_idx != dir->first_block->fcb.first_idx) {
+		to_free = current_idx;
 		if (dir_block->occupied == 0) {
 			if (current_idx == dir->first_block->fcb.last_idx) {
 				current_idx = dir->first_block->fcb.first_idx;
@@ -1049,15 +1050,14 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 				}
 				dir->fs->fat[aux] = dir->fs->fat[current_idx];
 				dir->fs->fat[current_idx] = FREE_BLOCK;
-				ret = driver_freeBlock(dir->fs->first_block, current_idx);
-				if (ret == -1) {
-					printf("free_block error\n");
-					return -1;
-				}
 			}
-		}
+			ret = driver_freeBlock(dir->fs->first_block, to_free);
+			if (ret == -1) {
+				printf("free_block error\n");
+				return -1;
+			}
+		}	
 		else {
-			
 			ret = driver_writeBlock(dir->fs->first_block, current_idx, dir_block);
 			if (ret == -1) {
 				printf("write block error\n");
@@ -1067,8 +1067,9 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 		}
 	}
 	else {
-		dir->first_block->occupied = dir_block->occupied;
+		dir->first_block->occupied--;
 		dir->first_block->first_free_entry = dir_block->first_free_entry;
+		dir->first_block->first_blocks[i] = 0;
 	}
 
 	FirstFileBlock* file_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
@@ -1099,6 +1100,96 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 
 
 
+int FS_eraseDir_aux(DirHandle* dir) {
+	
+	int ret;
+	int32_t entries = dir->first_block->fcb.dim;
+	FileBlockHeader* header = NULL;
+	DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
+	void* block = (void*) malloc(sizeof(FileBlock));
+	memcpy(dir_block->first_blocks, dir->first_block->first_blocks, sizeof(dir->first_block->first_blocks));
+	dir_block->occupied = dir->first_block->occupied;
+	int32_t current_idx = dir->first_block->fcb.first_idx;
+	int32_t occupied = dir->first_block->occupied;
+	int32_t entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
+	DirHandle* dir_handle = (DirHandle*) malloc(sizeof(DirHandle));
+	dir_handle->fs = dir->fs;
+	int32_t to_free;
+
+	printf("entries: %d, dir: %s\n", entries, dir->first_block->header.name);
+
+	while (entries != 0) {
+
+		for (int i = 0; i < entries_block && occupied != 0; i++) {
+			if (dir_block->first_blocks[i] != 0) {
+				occupied--;
+				entries--;
+				ret = driver_readBlock(dir->fs->first_block, dir_block->first_blocks[i], block);
+				if (ret == -1) {
+					printf("read file_block error\n");
+					free(dir_block);
+					free(block);
+					return 0;
+				}
+				header = (FileBlockHeader*) block;
+				if (header->flag == DIR) {
+					block = (FirstDirBlock*) header;
+					dir_handle->first_block = block;
+					ret = FS_eraseDir_aux(dir_handle);
+					if (ret == -1) {
+						free(dir_block);
+						free(block);
+						return -1;
+					}
+				}
+				else { // header->flag == FL
+					ret = FS_eraseFile(dir, header->name);
+					if (ret == -1) {
+						free(dir_block);
+						free(block);
+						return -1;
+					}
+				}
+			}
+		}
+		
+		to_free = current_idx;
+		current_idx = dir->fs->fat[current_idx];
+		ret = driver_freeBlock(dir->fs->first_block, to_free);
+		if (ret == -1) {
+			printf("free_block error\n");
+			free(dir_block);
+			free(block);
+			free(dir_handle);
+			return -1;
+		}
+
+		dir->fs->fat[to_free] = FREE_BLOCK;
+		if (current_idx == -1)
+			break;
+
+		ret = driver_readBlock(dir->fs->first_block, current_idx, dir_block);
+		if (ret == -1) {
+			printf("read dir_block error\n");
+			free(dir_block);
+			free(block);
+			return -1;
+		}
+		occupied = dir_block->occupied; 
+
+	}
+	
+	free(dir_block);
+	free(block);
+	free(dir_handle);
+
+	printf("num_entries: %d\n", entries);
+
+	return 0;
+}
+
+
+
 int FS_eraseDir(DirHandle* dir, const char* dirname) {
 
 	int ret;
@@ -1113,9 +1204,8 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 	int32_t occupied = dir->first_block->occupied;
 	int32_t entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
 	int find = 0;
-	int32_t first_file_idx;
+	int32_t first_dir_idx;
 	int i;
-	int32_t to_free;
 
 	while (1) {
 		for (i = 0; i < entries_block && occupied != 0 && !find; i++) {
@@ -1131,13 +1221,15 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 				header = (FileBlockHeader*) block;
 				if (header->flag == DIR) {
 					if (strcmp(header->name, dirname) == 0) {
-						first_file_idx = dir_block->first_blocks[i];
+						first_dir_idx = dir_block->first_blocks[i];
 						find = 1;
 						break;
 					}
 				}
 			}
 		}
+
+		printf("find: %d, current_idx: %d\n", find,current_idx);
 
 		if (find || !find && current_idx == dir->first_block->fcb.last_idx)
 			break;
@@ -1157,6 +1249,8 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 
 	if (!find) {
 		printf("dir '%s' does not exist\n", dirname);
+		free(dir_block);
+		free(block);
 		return -1;
 	}
 
@@ -1168,6 +1262,7 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 
 	if (current_idx != dir->first_block->fcb.first_idx) {
 		if (dir_block->occupied == 0) {
+			int32_t to_free = current_idx; 
 			if (current_idx == dir->first_block->fcb.last_idx) {
 				current_idx = dir->first_block->fcb.first_idx;
 				while (dir->fs->fat[current_idx] != dir->first_block->fcb.last_idx) {
@@ -1184,19 +1279,21 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 				}
 				dir->fs->fat[aux] = dir->fs->fat[current_idx];
 				dir->fs->fat[current_idx] = FREE_BLOCK;
-				ret = driver_freeBlock(dir->fs->first_block, current_idx);
-				if (ret == -1) {
-					printf("free_block error\n");
-					return -1;
-				}
+			}
+			ret = driver_freeBlock(dir->fs->first_block, to_free);
+			if (ret == -1) {
+				printf("free_block error\n");
+				free(dir_block);
+				free(block);
+				return -1;
 			}
 		}
 		else {
-			
 			ret = driver_writeBlock(dir->fs->first_block, current_idx, dir_block);
 			if (ret == -1) {
 				printf("write block error\n");
 				free(dir_block);
+				free(block);
 				return -1;
 			}
 		}
@@ -1204,63 +1301,31 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 	else {
 		dir->first_block->occupied = dir_block->occupied;
 		dir->first_block->first_free_entry = dir_block->first_free_entry;
+		dir->first_block->first_blocks[i] = 0;
 	}
 
 	FirstDirBlock* first_dir_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
-	ret = driver_readBlock(dir->fs->first_block, first_file_idx, first_dir_block);
+	ret = driver_readBlock(dir->fs->first_block, first_dir_idx, first_dir_block);
 	if (ret == -1) {
 		printf("read block error\n");
+		free(dir_block);
+		free(block);
+		free(first_dir_block);
 		return -1;
 	}
 
-	int32_t entries = first_dir_block->fcb.dim;
-	header = NULL;
-	memset(dir_block, 0, BLOCK_DIM);
-	memset(block, 0, BLOCK_DIM);
-	memcpy(dir_block->first_blocks, first_dir_block->first_blocks, sizeof(first_dir_block->first_blocks));
-	dir_block->occupied = first_dir_block->occupied;
-	current_idx = dir->first_block->fcb.first_idx;
-	occupied = dir->first_block->occupied;
-	entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
 	DirHandle* handle_aux = (DirHandle*) malloc(sizeof(DirHandle));
 	handle_aux->fs = dir->fs;
-	memcpy(handle_aux->first_block, first_dir_block, sizeof(FirstDirBlock));
+	handle_aux->first_block = first_dir_block;
 
-	while (entries != 0) {
-		for (i = 0; i < entries_block && occupied != 0 && !find; i++) {
-			if (dir_block->first_blocks[i] != 0) {
-				occupied--;
-				entries--;
-				ret = driver_readBlock(dir->fs->first_block, dir_block->first_blocks[i], block);
-				if (ret == -1) {
-					printf("read file_block error\n");
-					free(dir_block);
-					free(block);
-					free(first_dir_block);
-					return 0;
-				}
-				header = (FileBlockHeader*) block;
-				if (header->flag == DIR) {
-					// chiamata ricorsiva, serve un'erase_dir_aux ricorsiva (iterazione + ricorsione)
-				}
-				else { // header->flag == FL
-					ret = FS_eraseFile(handle_aux, header->name);
-					if (ret == -1) {
-						free(dir_block);
-						free(block);
-						free(first_dir_block);
-						return 1;
-					}
-				}
-			}
-		}
-	}
-
+	ret = FS_eraseDir_aux(handle_aux);
+	
+	free(handle_aux);
 	free(dir_block);
 	free(block);
 	free(first_dir_block);
 
-	return 0;
+	return ret;
 }
 
 
