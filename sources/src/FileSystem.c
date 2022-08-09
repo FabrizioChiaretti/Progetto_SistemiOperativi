@@ -31,12 +31,14 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		fs->fat = (int32_t*) (fs->first_block + fs->first_block->fat.first_fatBlock);
 		root_handle = (DirHandle*) malloc(sizeof(DirHandle));
 		root_handle->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
+		root_handle->fs = fs;
+		root_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
+		List_init(root_handle->open_files);
 		ret = driver_readBlock(fs->first_block, 0, root_handle->first_block);
 		if (ret == -1) {
 			printf("init read root block\n");	
 			exit(EXIT_FAILURE);
 		}
-		root_handle->fs = fs;
 	}
 	
 	else {
@@ -54,6 +56,8 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		root_handle->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 		memset(root_handle->first_block, 0, sizeof(FirstDirBlock));
 		root_handle->fs = fs;
+		root_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
+		List_init(root_handle->open_files);
 		const char* name = "rootdir";
 		strcpy(root_handle->first_block->header.name, name);
 		root_handle->first_block->header.flag = ROOTDIR;
