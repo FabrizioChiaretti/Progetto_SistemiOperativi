@@ -24,12 +24,13 @@ int main (int argc, char** argv) {
 	DirHandle* root_dir_handle = FS_init(fs_struct, DISK_PATHNAME, DISK_DIM, BLOCK_DIM);
 	root_dir_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
 	List_init(root_dir_handle->open_files);
-	DirHandle* current_dir = (DirHandle*) malloc(sizeof(DirHandle));
+	DirHandle* current_dir = root_dir_handle;
+	/*DirHandle* current_dir = (DirHandle*) malloc(sizeof(DirHandle));
 	current_dir->fs = root_dir_handle->fs;
 	current_dir->open_files = (ListHead*) malloc(sizeof(ListHead));
 	current_dir->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 	List_init(current_dir->open_files);
-	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));
+	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));*/
 
 	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  current_dir->first_block->first_free_entry);
@@ -85,49 +86,10 @@ int main (int argc, char** argv) {
 	int to_write2 = strlen(block2);
 	int to_write3 = strlen(block3);
 	
-	printf("to_write1: %d, to_write2: %d\n", to_write1, to_write2);
 	ret = FS_write(file, (void*) block1, to_write1);
-	printf("write1 ok\n");
 	ret = FS_write(file, (void*) block2, to_write2);
-	printf("write2 ok\n");
 	ret = FS_write(file, (void*) block3, to_write3);
 	printf("write3 ok\n");
-
-
-	
-	/*FileBlock* file_block = (FileBlock*) malloc(sizeof(FileBlock));
-	int32_t current_idx = file->first_block->fcb.first_idx;
-	while (1) {
-		if (current_idx == file->first_block->fcb.first_idx) {
-			printf("%s ", file->first_block->block);
-		}
-		else {
-			ret = driver_readBlock(file->fs->first_block, current_idx, file_block);
-			if (ret == -1) {
-				printf("read error block\n");
-				exit(EXIT_FAILURE);
-			}
-			printf("%s ", file_block->block);
-		}
-		current_idx = file->fs->fat[current_idx];
-		if (current_idx == -1)
-			break;
-	}
-	printf("\n");
-	printf("//////////////////////\n");*/
-
-	char* block = (char*) malloc(1001);
-	*block = '\0';
-	file->pos = 0;
-	file->current_block = 0;
-	ret = FS_read(file, (void*) block, 1000);
-	printf("result: %d\n", ret);
-	printf("%s\n", block);
-	
-	char* prova = (char*) malloc(353);
-	ret = FS_read(file, (void*) prova, 353);
-	printf("result: %d\n", ret);
-	printf("%s\n", prova);
 
 	ret = driver_writeBlock(current_dir->fs->first_block, file->first_block->fcb.first_idx, file->first_block);
 	if(ret == -1) {
@@ -156,13 +118,47 @@ int main (int argc, char** argv) {
 		printf("%s\n", ls_dir[i]);
 	}
 	printf("\n");
-	free(ls_dir);
+	printf("eliminando: %s\n", filename);
 	ret = FS_eraseFile(current_dir, filename);
+	ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
+	ret = FS_listing(current_dir, ls_dir);
+	printf("result: %d, entries: %d\n", ret, current_dir->first_block->fcb.dim);
+	for (int i = 0; i < current_dir->first_block->fcb.dim; i++) {
+		printf("%s\n", ls_dir[i]);
+	}
+	printf("\n");
+	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
+	printf("open files: %d\n", root_dir_handle->open_files->size);
 
+	printf("eliminando: %s\n", "pitagora");
 	ret = FS_eraseDir(current_dir, "pitagora");
+	ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
+	ret = FS_listing(current_dir, ls_dir);
+	printf("result: %d, entries: %d\n", ret, current_dir->first_block->fcb.dim);
+	for (int i = 0; i < current_dir->first_block->fcb.dim; i++) {
+		printf("%s\n", ls_dir[i]);
+	}
+	printf("\n");
+	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
+	printf("open files: %d\n", root_dir_handle->open_files->size);
 
-	ret = FS_changeDir(current_dir, "cicerone");
+	printf("change cicerone\n");
+	current_dir = (DirHandle*) malloc(sizeof(DirHandle));
+	current_dir->fs = root_dir_handle->fs;
+	current_dir->open_files = (ListHead*) malloc(sizeof(ListHead));
+	current_dir->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
+	List_init(current_dir->open_files);
+	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));
 
+	ret = FS_changeDir(root_dir_handle, current_dir, "cicerone");
+	if (current_dir->first_block == NULL) {
+		free(current_dir);
+		current_dir = root_dir_handle;
+	}
+
+	printf("///////// create 4 file\n");
 	for (int i = 0; i < 2; i++) {
 		if (i == 0)
 			name = "bruto";
@@ -179,7 +175,37 @@ int main (int argc, char** argv) {
 			ret = FS_mkdir(current_dir, name);
 	}
 
-	ret = FS_eraseDir(root_dir_handle, "cicerone");
+	ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
+	ret = FS_listing(current_dir, ls_dir);
+	printf("result: %d, entries: %d\n", ret, current_dir->first_block->fcb.dim);
+	for (int i = 0; i < current_dir->first_block->fcb.dim; i++) {
+		printf("%s\n", ls_dir[i]);
+	}
+
+	while (current_dir->open_files->size != 0) {
+		ret = FS_close(current_dir, (FileHandle*) current_dir->open_files->first);
+		if(ret == -1) {
+			printf("close error\n");
+			exit(EXIT_FAILURE);
+		} 
+	}
+
+	printf("///////////// cicerone erase\n");
+
+	ret = driver_writeBlock(current_dir->fs->first_block, current_dir->first_block->fcb.first_idx, current_dir->first_block);
+	if(ret == -1) {
+		printf("write rootblock error\n");
+		exit(EXIT_FAILURE);
+	}
+
+
+	ret = FS_changeDir(root_dir_handle, current_dir, "..");
+	if (current_dir->first_block == NULL) {
+		free(current_dir);
+		current_dir = root_dir_handle;
+	}
+
+	ret = FS_eraseDir(current_dir, "cicerone");
 
 	ls_dir = (char**) malloc(sizeof(char*)*current_dir->first_block->fcb.dim);
 	ret = FS_listing(current_dir, ls_dir);
@@ -188,13 +214,12 @@ int main (int argc, char** argv) {
 		printf("%s\n", ls_dir[i]);
 	}
 	printf("\n");
-	
 
-	printf("avaible blocks: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("avaible blocks: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 	printf("root first_free_entry: %d\n",  root_dir_handle->first_block->first_free_entry);
 	printf("open files: %d\n", root_dir_handle->open_files->size);
 
-	ret = FS_flush(fs_struct->first_block);
+	ret = FS_flush(root_dir_handle->fs->first_block);
 	if(ret == -1) {
 		printf("flush error\n");
 		exit(EXIT_FAILURE);

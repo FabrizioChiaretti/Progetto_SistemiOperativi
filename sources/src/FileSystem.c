@@ -199,7 +199,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		parent_block = dir->first_block->fcb.last_idx;
 	}
 	dir->first_block->fcb.dim++;
-	FileHandle* file_handle = (FileHandle*) calloc(1, sizeof(FileHandle));
+	FileHandle* file_handle = (FileHandle*) malloc(sizeof(FileHandle));
 	file_handle->pos = 0;
 	file_handle->mode = WR;
 	file_handle->fs = dir->fs;
@@ -342,6 +342,13 @@ int FS_close(DirHandle* dir, FileHandle* file) {
 	
 	FileHandle* detached = (FileHandle*) List_detach(dir->open_files, (ListItem*) file);
 
+	int ret = driver_writeBlock(dir->fs->first_block, detached->first_block->fcb.first_idx, detached->first_block);
+	if (ret == -1) {
+		printf("write block error\n");
+		free(detached->first_block);
+		free(detached);
+	}
+
 	free(detached->first_block);
 	free(detached);
 
@@ -353,7 +360,6 @@ int FS_close(DirHandle* dir, FileHandle* file) {
 int FS_mkdir(DirHandle* dir, const char* dirname) {
 	
 	int32_t first_dir_idx;
-	int32_t parent_idx;
 	int32_t num_entries = dir->first_block->fcb.dim; 
 
 	if (num_entries <= sizeof(dir->first_block->first_blocks) / sizeof(int32_t)) { // first dir block
@@ -382,7 +388,6 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 				free(dir_block);
 				return -1;
 			}
-			parent_idx = free_idx;
 			free(dir_block);
 		}
 
@@ -392,7 +397,6 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 				printf("there is not free blocks\n");
 				return -1;
 			}
-			parent_idx = dir->first_block->fcb.first_idx;
 			dir->first_block->first_blocks[dir->first_block->first_free_entry] = first_dir_idx;
 			dir->first_block->occupied++;
 			int i = dir->first_block->first_free_entry +1;
@@ -434,7 +438,6 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 			dir_block->first_blocks[0] = first_dir_idx;
 			dir_block->first_free_entry = 1;	
 			dir_block->occupied = 1;
-			parent_idx = free_idx;
 
 			if (driver_writeBlock(dir->fs->first_block, free_idx, dir_block) == -1) {
 				printf("write dir block error\n");
@@ -450,7 +453,6 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 				free(dir_block);
 				return -1;
 			}
-			parent_idx = last_idx;
 			dir_block->first_blocks[dir_block->first_free_entry] = first_dir_idx;
 			dir_block->occupied++;
 			int i = dir_block->first_free_entry +1;
@@ -474,7 +476,7 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 	dir_block->first_free_entry = 0;
 	dir_block->fcb.dim = 0;
 	dir_block->fcb.first_idx = dir_block->fcb.last_idx = first_dir_idx;
-	dir_block->fcb.parent_block = parent_idx;
+	dir_block->fcb.parent_block = dir->first_block->fcb.first_idx;
 
 	if (driver_writeBlock(dir->fs->first_block, dir_block->fcb.first_idx, dir_block) == -1) {
 		printf("write dir block error\n");
@@ -553,7 +555,7 @@ int FS_listing(DirHandle* dir, char** file_names) {
 
 
 
-int FS_changeDir(DirHandle* dir, char* dirname) {
+int FS_changeDir(DirHandle* root, DirHandle* dir, char* dirname) {
 
 	if (dir->open_files->size != 0) {
 		printf("close all files and try again\n");
@@ -564,6 +566,29 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 	if (ret == -1) {
 		printf("write current first_dir block error\n");
 		return -1;
+	}
+
+	if (strcmp(dirname, "..") == 0) {
+		if (dir == root) {
+			printf("you are on the top level (root)\n");
+			return -1;
+		}
+		int32_t parent_idx = dir->first_block->fcb.parent_block;
+		if (parent_idx == 0) { // root dir becomes the current
+			List_destroy(dir->open_files);
+			dir->open_files = NULL;
+			dir->fs = NULL;
+			free(dir->first_block);
+			dir->first_block = NULL;
+		}
+		else {
+			int ret = driver_writeBlock(dir->fs->first_block, parent_idx, dir->first_block);
+			if (ret == -1) {
+				printf("read parent block block error\n");
+				return -1;
+			} 
+		}
+		return 0;
 	}
 
 	int32_t num_entries = dir->first_block->fcb.dim;
@@ -623,8 +648,9 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 		return -1;
 	}
 
-	memset(dir->first_block, 0, sizeof(FirstDirBlock));	
-	dir->first_block = (FirstDirBlock*) block;
+	memcpy(dir->first_block, block, sizeof(FirstDirBlock));	
+
+	free(block);
 	free(dir_block);
 
 	return 0;
@@ -1068,8 +1094,9 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 	}
 	else {
 		dir->first_block->occupied--;
-		dir->first_block->first_free_entry = dir_block->first_free_entry;
 		dir->first_block->first_blocks[i] = 0;
+		if (i < dir->first_block->first_free_entry)
+			dir->first_block->first_free_entry = i;
 	}
 
 	FirstFileBlock* file_block = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
@@ -1114,9 +1141,21 @@ int FS_eraseDir_aux(DirHandle* dir) {
 	int32_t entries_block = sizeof(dir_block->first_blocks)/sizeof(int32_t);
 	DirHandle* dir_handle = (DirHandle*) malloc(sizeof(DirHandle));
 	dir_handle->fs = dir->fs;
+	dir_handle->open_files = dir->open_files;
 	int32_t to_free;
 
-	printf("entries: %d, dir: %s\n", entries, dir->first_block->header.name);
+	printf("entries: %d, dir: %s, ok\n", entries, dir->first_block->header.name);
+
+	if (entries == 0) {
+		ret = driver_freeBlock(dir->fs->first_block, current_idx);
+		if (ret == -1) {
+			printf("free_block error\n");
+			free(dir_block);
+			free(block);
+			free(dir_handle);
+			return -1;
+		}
+	}
 
 	while (entries != 0) {
 
@@ -1229,7 +1268,7 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 			}
 		}
 
-		printf("find: %d, current_idx: %d\n", find,current_idx);
+		printf("find: %d, current_idx: %d\n", find, current_idx);
 
 		if (find || !find && current_idx == dir->first_block->fcb.last_idx)
 			break;
@@ -1299,9 +1338,10 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 		}
 	}
 	else {
-		dir->first_block->occupied = dir_block->occupied;
-		dir->first_block->first_free_entry = dir_block->first_free_entry;
+		dir->first_block->occupied--;
 		dir->first_block->first_blocks[i] = 0;
+		if (i < dir->first_block->first_free_entry)
+			dir->first_block->first_free_entry = i;
 	}
 
 	FirstDirBlock* first_dir_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
@@ -1317,9 +1357,13 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 	DirHandle* handle_aux = (DirHandle*) malloc(sizeof(DirHandle));
 	handle_aux->fs = dir->fs;
 	handle_aux->first_block = first_dir_block;
+	handle_aux->open_files = (ListHead*) malloc(sizeof(ListHead));
+	List_init(handle_aux->open_files);
 
 	ret = FS_eraseDir_aux(handle_aux);
-	
+
+	List_destroy(handle_aux->open_files);
+
 	free(handle_aux);
 	free(dir_block);
 	free(block);
