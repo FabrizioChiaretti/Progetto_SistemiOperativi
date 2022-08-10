@@ -99,9 +99,9 @@ void List_print(ListHead* head) {
 
     ListItem* aux = head->first;
     while(aux) {
-        printf("%s  ",((FileHandle*)aux)->first_block->header.name);
+        printf("%s\n",((FileHandle*)aux)->first_block->header.name);
         aux = aux->next;
     }
-    printf("\n");
+    
     return;
 }

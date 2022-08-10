@@ -27,7 +27,7 @@ int main (int argc, char** argv) {
 	current_dir->open_files = (ListHead*) malloc(sizeof(ListHead));
 	List_init(current_dir->open_files);
 	current_dir->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
-	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(current_dir->first_block));
+	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));
 
 	printf("Blocchi disponibili: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 
@@ -55,12 +55,23 @@ int main (int argc, char** argv) {
 				printf("Chiudo tutti i file aperti\n");
 
 				while (current_dir->open_files->size != 0) {
-					FileHandle* file = (FileHandle*) List_detach(current_dir->open_files, current_dir->open_files->first);
-					ret = FS_close(current_dir, file);
+					ret = FS_close(current_dir, (FileHandle*) current_dir->open_files->first);
 				}
 			}
 
 			break;
+
+		}
+
+		else if (!strcmp(token, "file aperti")) {
+			
+			if (current_dir->open_files->size == 0) {
+				printf("Nessun file aperto\n");
+			}
+
+			else {
+				List_print(current_dir->open_files);
+			}
 
 		}
 	
@@ -124,17 +135,27 @@ int main (int argc, char** argv) {
 
 		else if (!strcmp(token, "open")) {
 
+			
 			printf("Nome del file: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
+			char name[MAX_LENGHT_NAME+1];
+			strcpy(name, token);
 	
 			printf("Modalità di apertura: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 			int mode = atoi(token);
 
-			FileHandle* file = FS_openFile(current_dir, token, mode);
+			if (mode != 0 && mode != 1 && mode != 2) {
+				printf("modalità non valida\n");
+				continue;
+			}
 
+			printf("mode: %d, name: %s\n", mode, name);
+
+			FileHandle* file = FS_openFile(current_dir, name, mode);
+	
 		}
 
 		else if (!strcmp(token, "close")) {
@@ -248,6 +269,11 @@ int main (int argc, char** argv) {
 				continue;
 			}
 
+			if (file->mode != WR && file->mode != RDWR) {
+				printf("Il file non è stato aperto in scrittura\n");
+				continue;
+			}
+
 			printf("Bytes da scrivere dalla posizione corrente: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
@@ -272,18 +298,27 @@ int main (int argc, char** argv) {
 				continue;
 			}
 
+			if (file->mode != RD && file->mode != RDWR) {
+				printf("Il file non è stato aperto in lettura\n");
+				continue;
+			}
+
 			printf("Bytes da leggere dalla posizione corrente: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			int to_read = atoi(token);
+			size_t size_data = sizeof(char)*(to_read+1);
 
-			char* data = (char*) calloc(to_read, sizeof(char));
-			read = FS_read(file, (void*) data, size);
+			char* data = (char*) calloc(to_read, size_data);
+			read = FS_read(file, (void*) data, size_data-1);
 
 			if (read != strlen(data)) {
 				printf("KO\n");
 			}
+
+			printf("%s\n", data);
+			free(data);
 
 		}
 
@@ -292,18 +327,25 @@ int main (int argc, char** argv) {
 		}
 
 		if (!strcmp(current_dir->first_block->header.name, "rootdir")) {
-			memcpy(root_dir_handle->first_block, current_dir->first_block, sizeof(current_dir->first_block));
+			memcpy(root_dir_handle->first_block, current_dir->first_block, sizeof(FirstDirBlock));
+		}
+		else {
+			ret = driver_writeBlock(current_dir->fs->first_block, current_dir->first_block->fcb.first_idx, current_dir->first_block);
+			if (ret == -1) {
+				printf("write block error\n");
+				exit(EXIT_FAILURE);
+			}
 		}
 
 	}
 
-	printf("Blocchi disponibili: %d\n", current_dir->fs->first_block->fat.free_blocks);
+	printf("Blocchi disponibili: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 
 	printf("Esco...\n");
 
 	free(token);
 
-	if (current_dir != NULL && current_dir != root_dir_handle) {
+	if (current_dir != NULL) {
 
 		if (current_dir->open_files != NULL)
 			free(current_dir->open_files);

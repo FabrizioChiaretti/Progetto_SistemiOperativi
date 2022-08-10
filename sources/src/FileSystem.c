@@ -232,9 +232,10 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 	
 	// checking that the file isn't already open
-	if (List_find(dir->open_files, filename)) {
-		printf("file %s is already open\n", filename);
-		return NULL;
+	FileHandle* file;
+	if (file = (FileHandle*) List_find(dir->open_files, filename)) {
+		printf("file '%s' è già aperto\n", filename);
+		return file;
 	}
 
 	int ret;
@@ -310,7 +311,7 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 		}
 
 		if(!find && current_idx == last_idx) {
-			printf("file %s does not exists\n", filename);
+			printf("file '%s' non esiste\n", filename);
 			free(dir_block);
 			free(first_file_block);
 			return NULL;
@@ -320,6 +321,13 @@ FileHandle* FS_openFile(DirHandle* dir, const char* filename, int mode) {
 			current_idx = dir->fs->fat[current_idx];
 
 		// else find !!!
+	}
+
+	if (!find) {
+		printf("file '%s' non esiste\n", filename);
+		free(dir_block);
+		free(first_file_block);
+		return NULL;
 	}
 
 	FileHandle* handle = (FileHandle*) malloc(sizeof(FileHandle));
@@ -557,6 +565,7 @@ int FS_listing(DirHandle* dir, char** file_names) {
 	}
 
 	free(dir_block);
+	free(block);
 
 	return result;
 }
@@ -582,7 +591,7 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 		exit(EXIT_FAILURE);
 	}
 
-	if (!strcmp(dirname, "..") == 0) {
+	if (!strcmp(dirname, "..")) {
 		if (!strcmp(dir->first_block->header.name, "rootdir")) {
 			printf("you are on the top level (rootdir)\n");
 			return -1;
@@ -894,7 +903,8 @@ int FS_read(FileHandle* file, void* data, int size) {
 
 		if (pos < sizeof(file->first_block->block)-1) {
 
-			if (size_block - strlen(file->first_block->block) +pos >= 0) 
+			int avaibles = strlen(file->first_block->block);
+			if (size_block - avaibles +pos >= 0) 
 				to_read = strlen(file->first_block->block) -pos;
 			else 
 				to_read = size_block;
