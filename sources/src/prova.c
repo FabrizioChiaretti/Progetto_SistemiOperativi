@@ -96,10 +96,16 @@ int main () {
 		}
 		List_print(head);
 	}*/
-	FileBlock* file = (FileBlock*) malloc(sizeof(FileBlock));
-	memset(file, 0, sizeof(FileBlock));
-	strcpy(file->block, "mario rossi");
-	printf("%s\n", file->block);
+	size_t token_dim = 20;
+	char* token = (char*) malloc(sizeof(token_dim));
+	int result;
+
+	while(token != "q") {
+		getline(&token, &token_dim, stdin);
+		token[strlen(token)-1] = '\0';
+		result = atoi(token);
+		printf("%d\n", result);
+	}
 }
 
 

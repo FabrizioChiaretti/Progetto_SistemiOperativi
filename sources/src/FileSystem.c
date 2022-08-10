@@ -32,8 +32,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		root_handle = (DirHandle*) malloc(sizeof(DirHandle));
 		root_handle->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 		root_handle->fs = fs;
-		root_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
-		List_init(root_handle->open_files);
+		root_handle->open_files = NULL;
 		ret = driver_readBlock(fs->first_block, 0, root_handle->first_block);
 		if (ret == -1) {
 			printf("init read root block\n");	
@@ -56,8 +55,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 		root_handle->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 		memset(root_handle->first_block, 0, sizeof(FirstDirBlock));
 		root_handle->fs = fs;
-		root_handle->open_files = (ListHead*) malloc(sizeof(ListHead));
-		List_init(root_handle->open_files);
+		root_handle->open_files = NULL;
 		const char* name = "rootdir";
 		strcpy(root_handle->first_block->header.name, name);
 		root_handle->first_block->header.flag = ROOTDIR;
@@ -353,6 +351,12 @@ int FS_close(DirHandle* dir, FileHandle* file) {
 		free(detached);
 	}
 
+	ret = FS_flush(dir->fs->first_block);
+	if(ret == -1) {
+		printf("flush error\n");
+		exit(EXIT_FAILURE);
+	}
+
 	free(detached->first_block);
 	free(detached);
 
@@ -559,7 +563,7 @@ int FS_listing(DirHandle* dir, char** file_names) {
 
 
 
-int FS_changeDir(DirHandle* root, DirHandle* dir, char* dirname) {
+int FS_changeDir(DirHandle* dir, char* dirname) {
 
 	if (dir->open_files->size != 0) {
 		printf("close all files and try again\n");
@@ -572,21 +576,24 @@ int FS_changeDir(DirHandle* root, DirHandle* dir, char* dirname) {
 		return -1;
 	}
 
-	if (strcmp(dirname, "..") == 0) {
-		if (dir == root) {
-			printf("you are on the top level (root)\n");
+	ret = FS_flush(dir->fs->first_block);
+	if(ret == -1) {
+		printf("flush error\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (!strcmp(dirname, "..") == 0) {
+		if (!strcmp(dir->first_block->header.name, "rootdir")) {
+			printf("you are on the top level (rootdir)\n");
 			return -1;
 		}
 		int32_t parent_idx = dir->first_block->fcb.parent_block;
 		if (parent_idx == 0) { // root dir becomes the current
-			List_destroy(dir->open_files);
-			dir->open_files = NULL;
-			dir->fs = NULL;
 			free(dir->first_block);
 			dir->first_block = NULL;
 		}
 		else {
-			int ret = driver_writeBlock(dir->fs->first_block, parent_idx, dir->first_block);
+			int ret = driver_readBlock(dir->fs->first_block, parent_idx, dir->first_block);
 			if (ret == -1) {
 				printf("read parent block block error\n");
 				return -1;
@@ -885,7 +892,6 @@ int FS_read(FileHandle* file, void* data, int size) {
  	FileBlock* aux = (FileBlock*)malloc(sizeof(FileBlock));
 	while (size_block != 0) {
 
-
 		if (pos < sizeof(file->first_block->block)-1) {
 
 			if (size_block - strlen(file->first_block->block) +pos >= 0) 
@@ -962,8 +968,8 @@ int FS_read(FileHandle* file, void* data, int size) {
 
 int FS_seek(FileHandle* file, int pos) {
 
-	if (pos > file->first_block->fcb.dim) {
-		printf("invalide seek\n");
+	if (pos > file->first_block->fcb.dim || pos < 0) {
+		printf("spostamento invalido\n");
 		return -1;
 	}
 
@@ -981,7 +987,7 @@ int FS_seek(FileHandle* file, int pos) {
 		file->current_block++;
 	}
 
-	printf("pos: %d, current_block: %d\n", file->pos, file->current_block);
+	printf("posizione: %d, blocco corrente: %d\n", file->pos, file->current_block);
 	return file->pos;
 }
 

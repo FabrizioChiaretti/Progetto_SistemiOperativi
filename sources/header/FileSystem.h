@@ -154,7 +154,7 @@ int FS_seek(FileHandle* file, int pos);
 // seeks for a directory in the current dir
 // retuns 0 on success, -1 on error
 // it does side effect on the current dir handle
- int FS_changeDir(DirHandle* root, DirHandle* dir, char* dirname);
+ int FS_changeDir(DirHandle* dir, char* dirname);
 
 // creates a new directory in the current dir
 // 0 on success -1 on error
