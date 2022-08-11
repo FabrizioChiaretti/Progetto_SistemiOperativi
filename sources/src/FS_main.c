@@ -96,6 +96,9 @@ int main (int argc, char** argv) {
 			}
 
 			FileHandle* file = FS_createFile(current_dir, token);
+			if (file == NULL) {
+				printf("file non creato\n");
+			}
 			
 		}
 
@@ -323,6 +326,8 @@ int main (int argc, char** argv) {
 			token[strlen(token)-1] = '\0';
 
 			int written = FS_write(file, (void*) token, strlen(token));
+			
+			printf("written: %d\n", written);
 
 			printf("posizione: %d, dim: %d\n", file->pos, file->first_block->fcb.dim);
 
