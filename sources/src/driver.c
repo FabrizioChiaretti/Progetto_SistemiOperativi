@@ -33,7 +33,6 @@ int driver_readBlock(FirstDiskBlock* disk, int32_t block_num, void* dest) {
 
     int32_t* fat = (int32_t*) (disk->fat.first_fatBlock + disk);
     if (block_num < 0 || block_num >= disk->fat.dim || fat[block_num] < -1) {
-        printf("readBlockError, block_num not valid\n");
         return -1;
     }
     void* disk_block = (void*) (disk + disk->rootDir_idx + block_num);
@@ -46,7 +45,6 @@ int driver_writeBlock(FirstDiskBlock* disk, int32_t block_num, void* source) {
 
     int32_t* fat = (int32_t*) (disk->fat.first_fatBlock + disk);
     if (block_num < 0 || block_num >= disk->fat.dim || fat[block_num] < -1) {
-        printf("writeBlockError, block_num not valid\n");
         return -1;
     }
     void* disk_block = (void*) (disk + disk->rootDir_idx + block_num);
@@ -60,7 +58,6 @@ int driver_freeBlock(FirstDiskBlock* disk, int32_t block_num) {
     
     int32_t* fat = (int32_t*) (disk->fat.first_fatBlock + disk);
     if (block_num >= disk->fat.dim || fat[block_num] == FREE_BLOCK) {
-        printf("freeBlockerror, block_num not valid\n");
         return -1;
     }
     if (disk->fat.first_free > block_num) {

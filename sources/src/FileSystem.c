@@ -20,7 +20,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 	int ret;
 
 	if (fd == -1) {
-		printf("DISKFILE ALREADY EXISTS\n");
+		printf("Preparazione del Filesystem\n");
 		fd = open(filename, O_RDWR | O_SYNC, 0666);
 		if (fd == -1) {
 			printf("open error\n");
@@ -41,7 +41,7 @@ DirHandle* FS_init(fs* fs, const char* filename, int disk_dim, int block_dim) {
 	}
 	
 	else {
-		printf("DISKFILE NOT ALREADY EXISTS\n");
+		printf("Inizializzazione del file 'disk' ...\n");
 		int ret = ftruncate(fd, disk_dim);
 		if (ret == -1) {
 			printf("ftruncate error\n");
@@ -88,7 +88,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		if (dir->first_block->first_free_entry == -1) {
 			int32_t free_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (free_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return NULL;
 			}
 			dir->fs->fat[last_idx] = free_idx;
@@ -98,7 +98,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			first_file_block_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_file_block_idx == -1) {
 				free(block);
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return NULL;
 			}
 			
@@ -117,7 +117,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		else {
 			first_file_block_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_file_block_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return NULL;
 			}
 
@@ -149,7 +149,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		if (block->first_free_entry != -1) {
 			first_file_block_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_file_block_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				free(block);
 				return NULL;
 			}
@@ -177,7 +177,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 		else {
 			int32_t free_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (free_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return NULL;
 			}
 			memset(block, 0, sizeof(DirBlock));
@@ -185,7 +185,7 @@ FileHandle* FS_createFile(DirHandle* dir, const char* filename) {
 			dir->first_block->fcb.last_idx = free_idx;
 			first_file_block_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_file_block_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return NULL;
 			}
 			block->first_blocks[0] = first_file_block_idx;
@@ -383,16 +383,17 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 		if (num_entries == sizeof(dir->first_block->first_blocks) / sizeof(int32_t)) {
 			int32_t free_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (free_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return -1;
 			}
 			dir->fs->fat[dir->first_block->fcb.first_idx] = free_idx;	
 			dir->first_block->fcb.last_idx = free_idx;
+			dir->first_block->first_free_entry = -1;
 			DirBlock* dir_block = (DirBlock*) malloc(sizeof(DirBlock));
 			memset(dir_block, 0, sizeof(DirBlock));
 			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_dir_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				free(dir_block);
 				return -1;
 			}
@@ -410,7 +411,7 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 		else {
 			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_dir_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				return -1;
 			}
 			dir->first_block->first_blocks[dir->first_block->first_free_entry] = first_dir_idx;
@@ -422,6 +423,8 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 					break;
 				}
 			}
+			if (i == sizeof(dir->first_block->first_blocks)/sizeof(int32_t) -1)
+				dir->first_block->first_free_entry = -1;
 		}
 	}
 
@@ -439,7 +442,7 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 		if (dir_block->first_free_entry == -1) {
 			free_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (free_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				free(dir_block);
 				return -1;
 			}
@@ -447,10 +450,11 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 			dir->first_block->fcb.last_idx = free_idx;
 			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_dir_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				free(dir_block);
 				return -1;
 			}
+			memset(dir_block, 0, sizeof(DirBlock));
 			dir_block->first_blocks[0] = first_dir_idx;
 			dir_block->first_free_entry = 1;	
 			dir_block->occupied = 1;
@@ -465,7 +469,7 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 		else {
 			first_dir_idx = driver_getfreeBlock(dir->fs->first_block);
 			if (first_dir_idx == -1) {
-				printf("there is not free blocks\n");
+				printf("Blocchi esauriti\n");
 				free(dir_block);
 				return -1;
 			}
@@ -477,7 +481,15 @@ int FS_mkdir(DirHandle* dir, const char* dirname) {
 					dir_block->first_free_entry = i;
 					break;
 				}
-			}			
+			}
+			if (i == sizeof(dir_block->first_blocks)/sizeof(int32_t) -1)
+				dir_block->first_free_entry = -1;	
+
+			if (driver_writeBlock(dir->fs->first_block, last_idx, dir_block) == -1) {
+				printf("write dir block error\n");
+				free(dir_block);
+				return -1;
+			}		
 		}
 
 		free(dir_block);
@@ -575,7 +587,7 @@ int FS_listing(DirHandle* dir, char** file_names) {
 int FS_changeDir(DirHandle* dir, char* dirname) {
 
 	if (dir->open_files->size != 0) {
-		printf("close all files and try again\n");
+		printf("chiudi tutti i file e riprova\n");
 		return -1;
 	}
 
@@ -593,7 +605,7 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 
 	if (!strcmp(dirname, "..")) {
 		if (!strcmp(dir->first_block->header.name, "rootdir")) {
-			printf("you are on the top level (rootdir)\n");
+			printf("Sei nella directory root\n");
 			return -1;
 		}
 		int32_t parent_idx = dir->first_block->fcb.parent_block;
@@ -662,7 +674,7 @@ int FS_changeDir(DirHandle* dir, char* dirname) {
 	}
 
 	if (!find) {
-		printf("dir %s does not exists\n", dirname);
+		printf("La directory '%s' non esiste\n", dirname);
 		free(dir_block);
 		free(block);
 		return -1;
@@ -739,7 +751,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 				flag = 1;
 				current_idx = driver_getfreeBlock(file->fs->first_block);
 				if (ret == -1) {
-					printf("there are not free blocks\n");
+					printf("Blocchi esauriti\n");
 					free(file_block);
 					return written;
 				}
@@ -778,7 +790,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 				if (file->fs->fat[current_idx] == LAST_BLOCK) {
 					ret = driver_getfreeBlock(file->fs->first_block);
 					if (ret == -1) {
-						printf("there are not free blocks\n");
+						printf("Blocchi esauriti\n");
 						free(file_block);
 						return written;
 					}
@@ -844,11 +856,8 @@ int FS_write(FileHandle* file, void* data, int size) {
 					to_write = size_block;
 
 				dim += to_write;
-				
-				printf("to write: %d\n", to_write);
 
 				int32_t pos_block = sizeof(file_block->block) - block_offset; 
-				printf("block_pos: %d\n", pos_block);
 				memcpy(file_block->block + pos_block, data_pos, to_write);
 
 				ret = driver_writeBlock(file->fs->first_block, current_idx, file_block);
@@ -863,14 +872,11 @@ int FS_write(FileHandle* file, void* data, int size) {
 				size_block -= to_write;			
 			}
 		}
-		printf("pos: %d\n", pos);
-		printf("written: %d\n", written);
 	}
 
 	file->pos = pos;
 	file->first_block->fcb.dim = dim;
 	free(file_block);
-	printf("esco, written: %d, pos: %d, dim: %d\n", written, pos, dim);
 
 	return written;
 }
@@ -880,7 +886,7 @@ int FS_write(FileHandle* file, void* data, int size) {
 int FS_read(FileHandle* file, void* data, int size) {
 
 	if (file->first_block->fcb.dim < file->pos + size) {
-		printf("invalid size read\n");
+		printf("Lettura non valida\n");
 		return -1;
 	}
 
@@ -897,15 +903,15 @@ int FS_read(FileHandle* file, void* data, int size) {
 		current_idx = file->fs->fat[current_idx];
 	}
 
-	//FileBlock* aux = &file_block;
  	FileBlock* aux = (FileBlock*)malloc(sizeof(FileBlock));
+
 	while (size_block != 0) {
 
 		if (pos < sizeof(file->first_block->block)-1) {
 
 			int avaibles = strlen(file->first_block->block);
 			if (size_block - avaibles +pos >= 0) 
-				to_read = strlen(file->first_block->block) -pos;
+				to_read = avaibles -pos;
 			else 
 				to_read = size_block;
 
@@ -926,9 +932,10 @@ int FS_read(FileHandle* file, void* data, int size) {
 				free(aux);
 				return result;
 			}
-	
-			if (size_block >  strlen(aux->block)) {
-				to_read = strlen(aux->block);
+
+			int num = strlen(aux->block);
+			if (size_block > num) {
+				to_read = num;
 			}
 			else {
 				to_read = size_block;
@@ -941,7 +948,6 @@ int FS_read(FileHandle* file, void* data, int size) {
 		}
 		else {
 			offset += (file->current_block)*sizeof(aux->block);
-			printf("offset: %d\n", offset);
 			ret = driver_readBlock(file->fs->first_block, current_idx, aux);
 			if (ret == -1) {
 				printf("read block error\n");
@@ -951,25 +957,22 @@ int FS_read(FileHandle* file, void* data, int size) {
 			int avaibles = offset - pos -1;
 			int block_offset = sizeof(aux->block) - avaibles-1;
 
-			printf("avaibles: %d, block_offset: %d\n", avaibles, block_offset);
-
-			if (size_block > strlen(aux->block)) {
-				to_read = strlen(aux->block);
+			int num = strlen(aux->block);
+			if (size_block > num) {
+				to_read = num;
 			}
 			else 
 				to_read = size_block;
 
-			printf("to read: %d\n", to_read);
 			strncat(block, aux->block + block_offset, to_read);
 			pos += to_read;
 			size_block -= to_read;
 			result += to_read;
 		}
-		printf("pos: %d, result: %d\n", pos, result);
-		printf("size: %d\n", size_block);
 	}
 
 	file->pos = pos;
+	free(aux);
 
 	return result;
 }
@@ -997,7 +1000,6 @@ int FS_seek(FileHandle* file, int pos) {
 		file->current_block++;
 	}
 
-	printf("posizione: %d, blocco corrente: %d\n", file->pos, file->current_block);
 	return file->pos;
 }
 
@@ -1006,7 +1008,7 @@ int FS_seek(FileHandle* file, int pos) {
 int FS_eraseFile(DirHandle* dir, const char* filename) {
 	
 	if (List_find(dir->open_files, filename)) { 
-		printf("close the file and try again to remove\n");
+		printf("Chiudi il file e riprova\n");
 		return -1;
 	}
 
@@ -1066,7 +1068,9 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 	}
 
 	if (!find) {
-		printf("file '%s' does not exist\n", filename);
+		printf("file '%s' non esiste\n", filename);
+		free(dir_block);
+		free(block);
 		return -1;
 	}
 
@@ -1128,7 +1132,6 @@ int FS_eraseFile(DirHandle* dir, const char* filename) {
 	int32_t idx = file_block->fcb.first_idx;
 	while (idx != LAST_BLOCK) {
 		to_free = idx;
-		printf("to free: %d\n", to_free);
 		idx = dir->fs->fat[idx];
 		ret = driver_freeBlock(dir->fs->first_block, to_free);
 		if (ret == -1) {
@@ -1163,8 +1166,6 @@ int FS_eraseDir_aux(DirHandle* dir) {
 	dir_handle->fs = dir->fs;
 	dir_handle->open_files = dir->open_files;
 	int32_t to_free;
-
-	printf("entries: %d, dir: %s, ok\n", entries, dir->first_block->header.name);
 
 	if (entries == 0) {
 		ret = driver_freeBlock(dir->fs->first_block, current_idx);
@@ -1242,8 +1243,6 @@ int FS_eraseDir_aux(DirHandle* dir) {
 	free(block);
 	free(dir_handle);
 
-	printf("num_entries: %d\n", entries);
-
 	return 0;
 }
 
@@ -1288,8 +1287,6 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 			}
 		}
 
-		printf("find: %d, current_idx: %d\n", find, current_idx);
-
 		if (find || !find && current_idx == dir->first_block->fcb.last_idx)
 			break;
 		
@@ -1307,7 +1304,7 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 	}
 
 	if (!find) {
-		printf("dir '%s' does not exist\n", dirname);
+		printf("dir '%s' non esiste\n", dirname);
 		free(dir_block);
 		free(block);
 		return -1;
@@ -1395,6 +1392,7 @@ int FS_eraseDir(DirHandle* dir, const char* dirname) {
 
 
 int FS_flush(FirstDiskBlock* disk) { 
+
     int ret = msync(disk, disk->header.disk_dim, MS_SYNC);
     if (ret == -1)
         printf("flush error\n");
