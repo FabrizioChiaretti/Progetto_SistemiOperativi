@@ -17,8 +17,8 @@ int main (int argc, char** argv) {
 
 	int ret;
 
-	printf("Ciao!\n");
-	printf("Inizializzazione...\n");
+	printf("Hi!\n");
+	printf("Initializzation...\n");
 
 	fs* fs_struct = (fs*) malloc(sizeof(fs));
 	DirHandle* root_dir_handle = FS_init(fs_struct, DISK_PATHNAME, DISK_DIM, BLOCK_DIM);
@@ -29,7 +29,7 @@ int main (int argc, char** argv) {
 	current_dir->first_block = (FirstDirBlock*) malloc(sizeof(FirstDirBlock));
 	memcpy(current_dir->first_block, root_dir_handle->first_block, sizeof(FirstDirBlock));
 
-	printf("Blocchi disponibili: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
+	printf("Available blocks: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 
 	int path_size = MAX_LENGHT_NAME+1;
 	char* path = (char*) calloc(path_size, sizeof(char));
@@ -51,13 +51,13 @@ int main (int argc, char** argv) {
 
 		token[strlen(token)-1] = '\0';
 		token_len = strlen(token);
-		printf("comando da eseguire: %s\n", token);
+		printf("Read command: %s\n", token);
 
 		if (!strcmp(token, "quit")) {
 
 			if (current_dir->open_files->size != 0) {
 
-				printf("Chiudo tutti i file aperti\n");
+				printf("Closing all files...\n");
 
 				while (current_dir->open_files->size != 0) {
 					ret = FS_close(current_dir, (FileHandle*) current_dir->open_files->first);
@@ -68,10 +68,10 @@ int main (int argc, char** argv) {
 
 		}
 
-		else if (!strcmp(token, "file aperti")) {
+		else if (!strcmp(token, "openedfiles")) {
 			
 			if (current_dir->open_files->size == 0) {
-				printf("Nessun file aperto\n");
+				printf("There are not opened files\n");
 			}
 
 			else {
@@ -82,14 +82,14 @@ int main (int argc, char** argv) {
 	
 		else if (!strcmp(token, "createfile")) {
 
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 			token_len = strlen(token);
 
 			while (token_len > MAX_LENGHT_NAME) {
 
-				printf("Il nome è troppo lungo, riprova\n");
+				printf("The name is too long, try again\n");
 				read = getline(&token, &token_dim, stdin);
 				token[strlen(token)-1] = '\0';
 				token_len = strlen(token);
@@ -97,14 +97,14 @@ int main (int argc, char** argv) {
 
 			FileHandle* file = FS_createFile(current_dir, token);
 			if (file == NULL) {
-				printf("file non creato\n");
+				printf("File did not create\n");
 			}
 			
 		}
 
 		else if (!strcmp(token, "erasefile")) {
 
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
@@ -114,14 +114,14 @@ int main (int argc, char** argv) {
 
 		else if (!strcmp(token, "mkdir")) {
 
-			printf("Nome della directory: ");
+			printf("Directory name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 			token_len = strlen(token);
 
 			while (token_len > MAX_LENGHT_NAME) {
 
-				printf("Il nome è troppo lungo\n");
+				printf("The name is too long, try again\n");
 				read = getline(&token, &token_dim, stdin);
 				token[strlen(token)-1] = '\0';
 				token_len = strlen(token);
@@ -133,7 +133,7 @@ int main (int argc, char** argv) {
 
 		else if (!strcmp(token, "erasedir")) {
 			
-			printf("Nome della directory: ");
+			printf("Directory name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
@@ -144,37 +144,37 @@ int main (int argc, char** argv) {
 		else if (!strcmp(token, "open")) {
 
 			
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 			char name[MAX_LENGHT_NAME+1];
 			strcpy(name, token);
 	
-			printf("Modalità di apertura: ");
+			printf("Opening modality: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 			int mode = atoi(token);
 
 			if (mode != 0 && mode != 1 && mode != 2) {
-				printf("modalità non valida\n");
+				printf("Invalid modality\n");
 				continue;
 			}
 
 			FileHandle* file = FS_openFile(current_dir, name, mode);
 			if (file != NULL)
-				printf("posizione: %d, dim: %d\n", file->pos, file->first_block->fcb.dim);
+				printf("Position: %d, size: %d\n", file->pos, file->first_block->fcb.dim);
 	
 		}
 
 		else if (!strcmp(token, "close")) {
 
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			FileHandle* file = (FileHandle*) List_find(current_dir->open_files, token);
 			if (file == NULL) {
-				printf("il file '%s' non è stato aperto\n", token);
+				printf("The file '%s' did not open\n", token);
 				continue;
 			}
 
@@ -207,7 +207,7 @@ int main (int argc, char** argv) {
 
 		else if (!strcmp(token, "cd")) {
 
-			printf("Nome della directory: ");
+			printf("Directory name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
@@ -244,7 +244,6 @@ int main (int argc, char** argv) {
 				
 				if (path_len + token_len +1 > path_size -1) {
 					path_size *= 2;
-					printf("pathsize: %d\n", path_size);
 					path = (char*) realloc(path, path_size);
 				}
 
@@ -259,13 +258,13 @@ int main (int argc, char** argv) {
 
 		else if (!strcmp(token, "seek")) {
 
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			FileHandle* file = (FileHandle*) List_find(current_dir->open_files, token);
 			if (file == NULL) {
-				printf("il file '%s' non è stato aperto\n", token);
+				printf("The file '%s' did not open\n", token);
 				continue;
 			}
 
@@ -275,7 +274,7 @@ int main (int argc, char** argv) {
 
 			int offset = atoi(token);
 
-			printf("da dove: ");
+			printf("whence: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
@@ -294,63 +293,63 @@ int main (int argc, char** argv) {
 			}
 
 			else {
-				printf("comando non valido\n");
+				printf("Command not found\n");
 				continue;
 			}
 
 			ret = FS_seek(file, pos);
 
-			printf("posizione: %d, dim: %d\n", file->pos, file->first_block->fcb.dim);
+			printf("Position: %d, size: %d\n", file->pos, file->first_block->fcb.dim);
 
 		}
 
 		else if (!strcmp(token, "write")) {
 			
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			FileHandle* file = (FileHandle*) List_find(current_dir->open_files, token);
 			if (file == NULL) {
-				printf("Il file '%s' non è stato aperto\n", token);
+				printf("The '%s' did not open\n", token);
 				continue;
 			}
 
 			if (file->mode != WR && file->mode != RDWR) {
-				printf("Il file non è stato aperto in scrittura\n");
+				printf("The file did not open with write modality\n");
 				continue;
 			}
 
-			printf("Bytes da scrivere dalla posizione corrente: ");
+			printf("To write: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			int written = FS_write(file, (void*) token, strlen(token));
 			
-			printf("written: %d\n", written);
+			printf("Written: %d\n", written);
 
-			printf("posizione: %d, dim: %d\n", file->pos, file->first_block->fcb.dim);
+			printf("Position: %d, size: %d\n", file->pos, file->first_block->fcb.dim);
 
 		}
 
 		else if (!strcmp(token, "read")) {
 
-			printf("Nome del file: ");
+			printf("File name: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
 			FileHandle* file = (FileHandle*) List_find(current_dir->open_files, token);
 			if (file == NULL) {
-				printf("Il file '%s' non è stato aperto\n", token);
+				printf("The file '%s' did not open\n", token);
 				continue;
 			}
 
 			if (file->mode != RD && file->mode != RDWR) {
-				printf("Il file non è stato aperto in lettura\n");
+				printf("The file did not open with read modality\n");
 				continue;
 			}
 
-			printf("Bytes da leggere dalla posizione corrente: ");
+			printf("Size to read: ");
 			read = getline(&token, &token_dim, stdin);
 			token[strlen(token)-1] = '\0';
 
@@ -367,12 +366,12 @@ int main (int argc, char** argv) {
 			printf("%s\n", data);
 			free(data);
 
-			printf("posizione: %d, dim: %d\n", file->pos, file->first_block->fcb.dim);
+			printf("Position: %d, size: %d\n", file->pos, file->first_block->fcb.dim);
 
 		}
 
 		else {
-			printf("comando non disponibile\n");
+			printf("Command not found\n");
 		}
 
 		if (!strcmp(current_dir->first_block->header.name, "rootdir")) {
@@ -388,9 +387,9 @@ int main (int argc, char** argv) {
 
 	}
 
-	printf("Blocchi disponibili: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
+	printf("Available blocks: %d\n", root_dir_handle->fs->first_block->fat.free_blocks);
 
-	printf("Esco...\n");
+	printf("Exiting...\n");
 
 	free(token);
 	free(path);
@@ -443,7 +442,7 @@ int main (int argc, char** argv) {
 
 	free(fs_struct);
 
-	printf("Arrivederci!\n");
+	printf("Bye!\n");
 
 	return EXIT_SUCCESS;
 
