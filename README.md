@@ -1,46 +1,47 @@
+
 # FAT32_FILESYSTEM
 
-Program that allows you to store informations in a file
+**FAT32_FILESYSTEM** is a tool written in C language that allows the user to create, modify and delete files and directories according to the FAT32 filesystem.
 
+## QUICK INSTALL GUIDE
 
-HOW TO INSTALL 
+1. Download the project on your local machine;
+2. Move inside the *sources/* folder;
+3. Use *make* to compile and launch the program by typing *./FS_main*:
+	- If the "disk" file does not exist, it will be created;
+	- If the "disk" file exists, it will be used as store for the current session;
+	- Removing the "disk" file all the files within it will be completely lost.
 
-Go to the 'sources' directory ('cd sources'), compile with 'make' command and run it with './FS_main' command.
-If 'disk' file does not exist it will be created, otherwise the program uses it to store your files and everytime, if you want, you can delete 'disk' file and the program creates a newone. Pay attention, if you delete the 'disk' file, all the files will be lost.
+## USER MANUAL
 
+By default, when launched for the first time, the program creates a *root/* directory.
+Below there is a complete list of all the commands supported by the **FAT32_FILESYSTEM** tool:
 
+- To open an existing file, use **open** command. The program will ask the name of the file to open and the opening mode: use *0* to open the file in read mode, *1* for write mode or *2* for a combination of the two modes. If you want to change the opening mode the file must be closed first and then opened again;
 
-HOW TO USE
+- To close a file use the **close** command. The program will ask the name of the file which should be closed;
 
-By deafult, a 'root' directoty will be created, and to do everything you want, you have only to write the corresponding command that you see below:
+- To create a file use the **createfile** command. The program will wait for the name of the file to be created. At this point the file will be opened in write mode;
 
-- open existing file: 'open', the program will ask you the name of the file to open and the opening modality, put '0' to read the file, '1' to write or '2' to read and write.
-If you want to change the modality opening you have to close and open it again.
+- To delete a file use the **erasefile** command. The program will ask the name of the file to delete;
 
-- close opened file: 'close', the program will ask you the name of the file to close.
+- To get a list of the open files use the **openedfiles** command;
 
-- create a file: 'createfile', the program will ask you the name of the file to create.
-The file will be opened with modality '1'.
+- To create a directory use the **mkdir** command. The program will ask for the name of the new directory.
 
-- erase a file: 'erasefile', the program will ask you the name of the file to delete;
+- To remove a directory use the **erasedir** command. The program will ask you the name of the directoy to be removed. Be aware that anything inside the directory will be deleted as well;
 
-- check opened files: 'openedfiles', the program will print the name of the opened file.
+- To change the current directory use the **cd** command. The program will ask you the name of the child directory and to go back to the parent directory use the '..' folder name;
 
-- create a directory: 'mkdir', the program will ask you the name.
+- To get a list of all the files and directories inside the current folder use the **ls** command;
 
-- erase a directory: 'erasedir', the program will ask you the name of the directoy to erase. All the files and directory inside will be erased.
+- To move the file offset of an open file use the **seek** command. The program will ask for three arguments: the *name* of the file, the *offset* and the *whence* (from where the offset should be repositioned). For the *whence* parameter, use 'start' to move the pointer of *offset* bytes from the beginnig of the file, 'current' to advance the position of *offset* from the current position or 'end' to seek the position at *offset* bytes from the end of the file;
 
-- change the current directory: 'cd', the program will ask you the name of the directory, if you want to return to parent directory put '..'.
+- To write inside an open file use the **write** command. The program will ask for the name of the file. Be aware that the program won't write any data unless the file is open in write mode;
 
-- listing files and directories of the current directory: 'ls', the program will print the files/directories names.
+- To read data from an open file use the **read** command. The program will ask for the name of the file to and how many byte should be read;
 
-- seek the position of an opened file: 'seek', the program will ask you the name of the file, the offset and from, put 'start' if you mean the offset from the beginnig of the file, 'current' to advance the position of offset from the current or 'end' to seek the position at offset from the end of the file.
-
-- write in an opened file: 'write', the program will ask you the name of the file and if it opened with modality '1' or '2', the program will write the content put.
-
-- read from an opened file: 'read', the program will ask you the name of the file to read and the size in bytes.
-
-- quit program: 'quit', all opened files will be closed if there are.
+- To quit and close the program use the **quit** command. By doing so, all the open files, if any, will be closed.
 
 
 
